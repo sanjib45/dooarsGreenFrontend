@@ -119,10 +119,12 @@ function SaleCard({ item, index, onPaymentClick, onDataChange }) {
                   <span className="text-on-surface-variant">Rate / kg</span>
                   <span className="font-medium">₹{fmt(item.rate)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Fine leaps ({fmtN(item.lessPercentage)}%)</span>
-                  <span className="font-medium text-error">− {fmtN(v.lessQty)} kg</span>
-                </div>
+                {item.fineLeaf > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">Fine Leaf %</span>
+                    <span className="font-medium">{fmtN(item.fineLeaf)}%</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -182,16 +184,32 @@ function SaleCard({ item, index, onPaymentClick, onDataChange }) {
             </div>
           )}
 
-          {/* Add payment button — only if not fully paid */}
-          {!isFullyPaid && (
+          {/* Action buttons */}
+          <div className="flex gap-2 flex-wrap">
+            {!isFullyPaid && (
+              <button
+                onClick={() => onPaymentClick(item)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-secondary/90 to-secondary text-white rounded-xl text-sm font-semibold shadow hover:shadow-md transition-all active:scale-[0.98]"
+              >
+                <span className="material-symbols-outlined text-base">add_circle</span>
+                Record Payment (₹{fmt(v.due)} remaining)
+              </button>
+            )}
             <button
-              onClick={() => onPaymentClick(item)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-secondary/90 to-secondary text-white rounded-xl text-sm font-semibold shadow hover:shadow-md transition-all active:scale-[0.98]"
+              onClick={async () => {
+                try {
+                  const url = await factoryAPI.getInvoiceBlob(item._id);
+                  window.open(url, '_blank');
+                } catch {
+                  toast.error('Failed to generate invoice');
+                }
+              }}
+              className={`${isFullyPaid ? 'flex-1' : ''} flex items-center justify-center gap-2 py-2.5 px-4 border-2 border-primary text-primary rounded-xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.98]`}
             >
-              <span className="material-symbols-outlined text-base">add_circle</span>
-              Record Payment (₹{fmt(v.due)} remaining)
+              <span className="material-symbols-outlined text-base">receipt_long</span>
+              Download Invoice
             </button>
-          )}
+          </div>
         </div>
       )}
     </div>
@@ -266,12 +284,29 @@ export default function BuyerHistoryDrawer({ buyerName, onClose, onPaymentClick,
               {records.length} sale record{records.length !== 1 ? 's' : ''} · All time history
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-surface-container transition-colors"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">close</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  const url = await factoryAPI.getInvoiceBlobByBuyer(buyerName);
+                  window.open(url, '_blank');
+                } catch {
+                  toast.error('Failed to generate statement');
+                }
+              }}
+              className="px-4 py-2 border-2 border-primary text-primary rounded-xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.98] flex items-center gap-2"
+              title="Download Statement"
+            >
+              <span className="material-symbols-outlined text-sm">receipt_long</span>
+              Download Statement
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-surface-container transition-colors"
+            >
+              <span className="material-symbols-outlined text-on-surface-variant">close</span>
+            </button>
+          </div>
         </div>
 
         {/* ── Summary bar ── */}
