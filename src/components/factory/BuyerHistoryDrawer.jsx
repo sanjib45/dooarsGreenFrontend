@@ -59,6 +59,9 @@ function SaleCard({ item, index, onPaymentClick, onDataChange }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-on-surface text-sm">{fmtDate(item.date)}</span>
+              <span className="px-2 py-0.5 rounded bg-surface-container border border-outline-variant/30 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                {item.teaType || 'CTC'}
+              </span>
               {item.remarks && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
                   {item.remarks}

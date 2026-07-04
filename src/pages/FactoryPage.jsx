@@ -11,17 +11,18 @@ import BuyerHistoryDrawer from '../components/factory/BuyerHistoryDrawer';
 const PAYMENT_MODES = ['Cash', 'Online', 'Cheque'];
 
 const getEmptyForm = () => ({
-  date:           new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
-  buyerName:      '',
-  buyerId:        '',
-  buyerObj:       null,
-  totalQuantity:  '',
-  lessPercentage: '',
-  fineLeaf:       '',
-  rate:           '',
-  advance:        '',
-  dueDate:        '',
-  remarks:        '',
+  date: '',
+  buyerName: '',
+  buyerId: '',
+  buyerObj: null,
+  teaType: 'CTC',
+  totalQuantity: '',
+  lessPercentage: 0,
+  rate: '',
+  advance: 0,
+  fineLeaf: '',
+  dueDate: '',
+  remarks: '',
 });
 
 const getEmptyPayment = () => ({
@@ -33,6 +34,7 @@ const getEmptyPayment = () => ({
 // ── helpers ────────────────────────────────────────────────
 const fmt  = (n) => parseFloat(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const fmtN = (n) => parseFloat(n || 0).toFixed(2);
+const fmtDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 function calcVirtuals(totalQuantity, lessPercentage, rate, advance, payments) {
   const tq  = parseFloat(totalQuantity)  || 0;
@@ -554,6 +556,7 @@ export default function FactoryPage() {
       buyerName:      item.buyerName,
       buyerId:        item.buyer || '',
       buyerObj:       item.buyer ? { _id: item.buyer, name: item.buyerName, phone: '' } : null,
+      teaType:        item.teaType || 'CTC',
       totalQuantity:  item.totalQuantity,
       lessPercentage: item.lessPercentage,
       fineLeaf:       item.fineLeaf || '',
@@ -702,6 +705,16 @@ export default function FactoryPage() {
                     placeholder="Search buyer by name or phone..."
                     required
                   />
+                </div>
+                {/* Tea Type */}
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">Material *</label>
+                  <select name="teaType" value={form.teaType} onChange={handleChange} required
+                    className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container-low/50 text-sm text-on-surface focus:outline-none focus:border-primary transition-all">
+                    <option value="CTC">CTC</option>
+                    <option value="Green Tea">Green Tea</option>
+                    <option value="Others">Others</option>
+                  </select>
                 </div>
               </div>
 
@@ -857,7 +870,7 @@ export default function FactoryPage() {
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10">
               <tr className="bg-surface border-y border-outline-variant/20 shadow-sm">
-                {['Sl. No.', 'Date', 'Buyer Name', 'Total Qty', 'Less %', 'Less Qty', 'Fine Leaf %', 'Net Qty', 'Rate (₹)', 'Total Amt (₹)', 'Advance (₹)', 'Paid (₹)', 'Due (₹)', 'Action'].map(h => (
+                {['Sl. No.', 'Date', 'Buyer Name', 'Material', 'Total Qty', 'Less %', 'Less Qty', 'Fine Leaf %', 'Net Qty', 'Rate (₹)', 'Total Amt (₹)', 'Advance (₹)', 'Paid (₹)', 'Due (₹)', 'Action'].map(h => (
                   <th key={h} className="px-4 py-3.5 text-on-surface-variant font-bold text-sm whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -889,6 +902,11 @@ export default function FactoryPage() {
                         >
                           {item.buyerName}
                         </button>
+                      </td>
+                      <td className="px-4 py-4 text-center whitespace-nowrap">
+                        <span className="px-2 py-1 bg-surface-container rounded-lg text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                          {item.teaType || 'CTC'}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-right font-medium">{fmtN(item.totalQuantity)}</td>
                       <td className="px-4 py-4 text-right text-on-surface-variant">{fmtN(item.lessPercentage)}%</td>
