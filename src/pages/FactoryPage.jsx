@@ -513,6 +513,7 @@ export default function FactoryPage() {
   const [endDate, setEndDate]       = useState('');
   const [showCustomDateModal, setShowCustomDateModal] = useState(false);
   const [tempDates, setTempDates] = useState({ start: '', end: '' });
+  const [phoneSearch, setPhoneSearch] = useState('');  // phone filter
 
   // live preview virtuals while filling form
   const preview = calcVirtuals(form.totalQuantity, form.lessPercentage, form.rate, form.advance, []);
@@ -522,14 +523,15 @@ export default function FactoryPage() {
     setLoading(true);
     try {
       const params = {};
-      if (search) params.search = search;
-      if (startDate) params.startDate = startDate;
-      if (endDate)   params.endDate   = endDate;
+      if (search)      params.search    = search;      // name OR phone combined
+      if (phoneSearch) params.phone     = phoneSearch; // explicit phone filter
+      if (startDate)   params.startDate = startDate;
+      if (endDate)     params.endDate   = endDate;
       const { data } = await factoryAPI.getAll(params);
       setItems(data.data);
     } catch { toast.error('Failed to load factory data'); }
     setLoading(false);
-  }, [search, startDate, endDate]);
+  }, [search, phoneSearch, startDate, endDate]);
 
   const fetchStats = async () => {
     try { const { data } = await factoryAPI.getStats(); setStats(data.data); } catch {}
@@ -804,19 +806,28 @@ export default function FactoryPage() {
 
         {/* ── Factory Table ── */}
         <div className="glass-card rounded-3xl overflow-hidden shadow-xl shadow-primary/5">
-          {/* Table Header / Filters */}
           <div className="p-4 border-b border-outline-variant/20 flex flex-wrap gap-3 items-center bg-surface-container-low/50">
             <h3 className="font-headline text-xl font-semibold text-primary flex-1">Factory Records</h3>
-            
+
             <div className="flex flex-wrap items-center gap-2">
+              {/* Search by buyer name */}
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search buyer..."
-                  className="pl-9 pr-4 py-2 bg-surface-container rounded-full border-none text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buyer name…"
+                  title="Search by buyer name"
+                  className="pl-9 pr-4 py-2 bg-surface-container rounded-full border border-outline-variant/30 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+
+              {/* Search by phone */}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">phone</span>
+                <input value={phoneSearch} onChange={e => setPhoneSearch(e.target.value)} placeholder="Phone number…"
+                  title="Search by buyer phone number"
+                  className="pl-9 pr-4 py-2 bg-surface-container rounded-full border border-outline-variant/30 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
               </div>
 
               {/* Preset Date Filters */}
-              <div className="flex bg-surface-container rounded-full p-1 border border-outline-variant/30 hidden sm:flex">
+              <div className="flex bg-surface-container rounded-full p-1 border border-outline-variant/30">
                 {['Today', 'Last 7 Days', 'This Month'].map(preset => (
                   <button key={preset}
                     onClick={() => {
@@ -845,19 +856,19 @@ export default function FactoryPage() {
               <button
                 onClick={() => { setTempDates({ start: startDate, end: endDate }); setShowCustomDateModal(true); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-                  datePreset === 'Custom' || (startDate && datePreset === '') ? 'border-primary text-primary bg-primary/5' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container'
+                  datePreset === 'Custom' ? 'border-primary text-primary bg-primary/5' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container'
                 }`}
               >
                 <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-                {startDate && endDate && datePreset !== 'Today' && datePreset !== 'Last 7 Days' && datePreset !== 'This Month'
-                  ? `${new Date(startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+                {startDate && endDate && !['Today','Last 7 Days','This Month'].includes(datePreset)
+                  ? `${new Date(startDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} - ${new Date(endDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`
                   : 'Date'}
               </button>
 
-              {(search || startDate) && (
+              {(search || phoneSearch || startDate) && (
                 <button
-                  onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setDatePreset(''); }}
-                  className="flex items-center gap-1 text-error hover:bg-error/10 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+                  onClick={() => { setSearch(''); setPhoneSearch(''); setStartDate(''); setEndDate(''); setDatePreset(''); }}
+                  className="flex items-center gap-1 text-error hover:bg-error/10 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border border-error/30"
                 >
                   <span className="material-symbols-outlined text-sm">close</span>
                   Clear
@@ -904,23 +915,23 @@ export default function FactoryPage() {
                         </button>
                       </td>
                       <td className="px-4 py-4 text-center whitespace-nowrap">
-                        <span className="px-2 py-1 bg-surface-container rounded-lg text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                        <span className="px-2 py-1 bg-surface-container rounded-lg text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider inline-block whitespace-nowrap">
                           {item.teaType || 'CTC'}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-right font-medium">{fmtN(item.totalQuantity)}</td>
-                      <td className="px-4 py-4 text-right text-on-surface-variant">{fmtN(item.lessPercentage)}%</td>
-                      <td className="px-4 py-4 text-right text-on-surface-variant">{fmtN(v.lessQuantity)}</td>
-                      <td className="px-4 py-4 text-right text-on-surface-variant">
+                      <td className="px-4 py-4 text-right font-medium whitespace-nowrap">{fmtN(item.totalQuantity)}</td>
+                      <td className="px-4 py-4 text-right text-on-surface-variant whitespace-nowrap">{fmtN(item.lessPercentage)}%</td>
+                      <td className="px-4 py-4 text-right text-on-surface-variant whitespace-nowrap">{fmtN(v.lessQuantity)}</td>
+                      <td className="px-4 py-4 text-right text-on-surface-variant whitespace-nowrap">
                         {item.fineLeaf > 0 ? `${fmtN(item.fineLeaf)}%` : '—'}
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-primary">{fmtN(v.netQuantity)}</td>
-                      <td className="px-4 py-4 text-right">{fmt(item.rate)}</td>
-                      <td className="px-4 py-4 text-right font-bold text-primary">₹{fmt(v.totalAmount)}</td>
-                      <td className="px-4 py-4 text-right text-secondary">₹{fmt(item.advance)}</td>
-                      <td className="px-4 py-4 text-right text-green-600">₹{fmt(v.totalPaid)}</td>
-                      <td className="px-4 py-4 text-right">
-                        <span className={`font-bold ${isDue ? 'text-red-500' : 'text-green-600'}`}>
+                      <td className="px-4 py-4 text-right font-semibold text-primary whitespace-nowrap">{fmtN(v.netQuantity)}</td>
+                      <td className="px-4 py-4 text-right whitespace-nowrap">{fmt(item.rate)}</td>
+                      <td className="px-4 py-4 text-right font-bold text-primary whitespace-nowrap">₹{fmt(v.totalAmount)}</td>
+                      <td className="px-4 py-4 text-right text-secondary whitespace-nowrap">₹{fmt(item.advance)}</td>
+                      <td className="px-4 py-4 text-right text-green-600 whitespace-nowrap">₹{fmt(v.totalPaid)}</td>
+                      <td className="px-4 py-4 text-right whitespace-nowrap">
+                        <span className={`font-bold whitespace-nowrap inline-block ${isDue ? 'text-red-500' : 'text-green-600'}`}>
                           {isDue ? `₹${fmt(v.due)}` : '✓ Clear'}
                         </span>
                       </td>

@@ -140,7 +140,7 @@ export default function LoginPage() {
           <div className="flex items-center gap-4 px-5 py-2.5 glass-panel rounded-full border border-white/10 bg-black/20 backdrop-blur-md shadow-xl">
             <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 bg-[#4CAF50] rounded-full shadow-[0_0_8px_#4CAF50]" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">CREATED BY: SANJIB</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">MARKETING: RAKTIM &nbsp;|&nbsp; CREATED BY: SANJIB</span>
             </div>
             <div className="w-[1px] h-3.5 bg-white/20" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">SESSION V0.1</span>
