@@ -18,17 +18,17 @@ const TABLE_HEADERS = [
 
 function BalanceBadge({ balance }) {
   if (balance > 0) return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-orange-100 text-orange-700">
+    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-orange-100 text-orange-700 whitespace-nowrap inline-block">
       Amount Due
     </span>
   );
   if (balance < 0) return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-red-100 text-red-700">
+    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-red-100 text-red-700 whitespace-nowrap inline-block">
       Overpaid
     </span>
   );
   return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-green-100 text-green-700">
+    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-green-100 text-green-700 whitespace-nowrap inline-block">
       Paid
     </span>
   );
@@ -86,8 +86,8 @@ export default function MerchantTransactionTable({ items, loading, onViewDetails
                 <td className="px-4 py-4 font-semibold">{item.merchantName}</td>
 
                 {/* Tea type badge */}
-                <td className="px-4 py-4">
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary whitespace-nowrap inline-block">
                     {item.teaType}
                   </span>
                 </td>
@@ -95,12 +95,12 @@ export default function MerchantTransactionTable({ items, loading, onViewDetails
                 <td className="px-4 py-4 text-on-surface-variant">{item.grossQty} kg</td>
                 <td className="px-4 py-4 text-on-surface-variant">{item.lessPercent > 0 ? `${item.lessPercent}%` : '—'}</td>
                 <td className="px-4 py-4 text-on-surface-variant">{item.fineLeaf > 0 ? `${item.fineLeaf}%` : '—'}</td>
-                <td className="px-4 py-4 font-medium">{item.netQty} kg</td>
-                <td className="px-4 py-4 text-on-surface-variant">₹{item.ratePerKg}</td>
-                <td className="px-4 py-4 font-medium">
+                <td className="px-4 py-4 font-medium whitespace-nowrap">{item.netQty} kg</td>
+                <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">₹{item.ratePerKg}</td>
+                <td className="px-4 py-4 font-medium whitespace-nowrap">
                   ₹{(item.grossAmount || 0).toLocaleString('en-IN')}
                 </td>
-                <td className="px-4 py-4 text-on-surface-variant">
+                <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">
                   {item.laborCount} × ₹{item.laborChargePerWorker}
                 </td>
                 <td className="px-4 py-4 text-on-surface-variant">
@@ -109,8 +109,8 @@ export default function MerchantTransactionTable({ items, loading, onViewDetails
                 <td className="px-4 py-4 text-on-surface-variant">₹{item.advancePayment}</td>
 
                 {/* Balance column */}
-                <td className="px-4 py-4 text-center">
-                  <span className="block text-sm font-bold text-on-surface mb-0.5">
+                <td className="px-4 py-4 text-center whitespace-nowrap">
+                  <span className="block text-sm font-bold text-on-surface mb-0.5 whitespace-nowrap">
                     ₹{(item.balance || 0).toLocaleString('en-IN')}
                   </span>
                   <BalanceBadge balance={item.balance} />

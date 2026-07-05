@@ -331,6 +331,13 @@ export default function MerchantPage() {
           onSearchChange={setSearch}
           onFilterTypeChange={setFilterType}
           onDatePresetChange={handleDatePresetChange}
+          onClearAll={() => {
+            setSearch('');
+            setFilterType('');
+            setDatePreset('');
+            setStartDate('');
+            setEndDate('');
+          }}
         />
 
         <MerchantTransactionTable
