@@ -44,7 +44,8 @@ const PAYMENT_MODES = ['Cash', 'Bank Transfer', 'Cheque', 'UPI', 'Other'];
 const ADVANCE_MODES = ['Cash', 'Bank Transfer', 'Cheque', 'UPI', 'Other'];
 
 // ── Advance Payment Section ───────────────────────────────────────────────────
-function AdvanceSection({ merchantProfile, onDataChange, onAdvancesLoaded }) {
+function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvancesLoaded }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [advances, setAdvances] = useState([]);
   const [totalAdvance, setTotalAdvance] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -77,10 +78,19 @@ function AdvanceSection({ merchantProfile, onDataChange, onAdvancesLoaded }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!merchantId) return toast.error('Merchant profile not loaded yet');
+    let finalMerchantId = merchantId;
+    if (!finalMerchantId) {
+      if (!merchantName) return toast.error('Unknown merchant name');
+      try {
+        const { data: res } = await merchantMasterAPI.findOrCreate({ name: merchantName, phone: 'NO-PHONE-' + Date.now().toString().slice(-6) });
+        finalMerchantId = res.data._id;
+      } catch (err) {
+        return toast.error('Could not auto-create merchant profile. Please create it manually.');
+      }
+    }
     setSubmitting(true);
     try {
-      await merchantMasterAPI.createAdvance(merchantId, form);
+      await merchantMasterAPI.createAdvance(finalMerchantId, form);
       toast.success('Advance recorded!');
       setForm({
         amount: '',
@@ -111,8 +121,11 @@ function AdvanceSection({ merchantProfile, onDataChange, onAdvancesLoaded }) {
 
   return (
     <div className="border-b border-outline-variant/20 shrink-0">
-      {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-amber-50/50">
+      {/* Header bar — clickable to collapse */}
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-amber-50/50 cursor-pointer hover:bg-amber-100/50 transition-colors"
+        onClick={() => setIsOpen(v => !v)}
+      >
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-amber-600 text-[18px]">currency_rupee</span>
           <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Advance Payments to Farmer</span>
@@ -122,19 +135,26 @@ function AdvanceSection({ merchantProfile, onDataChange, onAdvancesLoaded }) {
             </span>
           )}
         </div>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
-        >
-          <span className="material-symbols-outlined text-sm">{showForm ? 'close' : 'add'}</span>
-          {showForm ? 'Cancel' : 'Add Advance'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowForm(v => !v); if (!isOpen) setIsOpen(true); }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">{showForm ? 'close' : 'add'}</span>
+            {showForm ? 'Cancel' : 'Add Advance'}
+          </button>
+          <span className={`material-symbols-outlined text-amber-600 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+            expand_more
+          </span>
+        </div>
       </div>
 
-      {/* Add Advance Form */}
-      {showForm && (
-        <form onSubmit={handleSubmit} className="px-4 py-3 bg-amber-50/30 border-b border-amber-100 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+      {/* Collapsible body */}
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        {/* Add Advance Form */}
+        {showForm && (
+          <form onSubmit={handleSubmit} className="px-4 py-3 bg-amber-50/30 border-b border-amber-100 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Amount (₹) *</label>
               <input
@@ -187,51 +207,263 @@ function AdvanceSection({ merchantProfile, onDataChange, onAdvancesLoaded }) {
         </form>
       )}
 
-      {/* Advance list */}
-      <div className="px-4 pb-3">
-        {loading ? (
-          <div className="flex justify-center py-3">
-            <span className="material-symbols-outlined animate-spin text-amber-600 text-xl">progress_activity</span>
-          </div>
-        ) : advances.length === 0 ? (
-          <p className="text-xs text-on-surface-variant italic py-2">No advance payments recorded yet.</p>
-        ) : (
-          <div className="space-y-1.5 pt-2">
-            {advances.map(adv => (
-              <div key={adv._id} className="flex items-center justify-between bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-full bg-amber-200 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-amber-700 text-[14px]">payments</span>
+        {/* Advance list */}
+        <div className="px-4 pb-3">
+          {loading ? (
+            <div className="flex justify-center py-3">
+              <span className="material-symbols-outlined animate-spin text-amber-600 text-xl">progress_activity</span>
+            </div>
+          ) : advances.length === 0 ? (
+            <p className="text-xs text-on-surface-variant italic py-2">No advance payments recorded yet.</p>
+          ) : (
+            <div className="space-y-1.5 pt-2">
+              {advances.map(adv => (
+                <div key={adv._id} className="flex items-center justify-between bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-amber-200 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-amber-700 text-[14px]">payments</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface">₹{fmt(adv.amount)}</p>
+                      <p className="text-[10px] text-on-surface-variant">
+                        {fmtDate(adv.advanceDate)} · {adv.paymentMode}
+                        {adv.notes && ` · ${adv.notes}`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-on-surface">₹{fmt(adv.amount)}</p>
-                    <p className="text-[10px] text-on-surface-variant">
-                      {fmtDate(adv.advanceDate)} · {adv.paymentMode}
-                      {adv.notes && ` · ${adv.notes}`}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-on-surface-variant/60">{adv.advanceId}</span>
+                    <button
+                      onClick={() => handleDelete(adv._id)}
+                      className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
+                      title="Delete advance"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-on-surface-variant/60">{adv.advanceId}</span>
-                  <button
-                    onClick={() => handleDelete(adv._id)}
-                    className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
-                    title="Delete advance"
-                  >
-                    <span className="material-symbols-outlined text-sm">delete</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
+      </div>{/* end collapsible body */}
+    </div>
+  );
+}
+
+// ── Merchant Payment Section (weekly / direct payment to merchant) ─────────────
+function PaymentSection({ merchantProfile, merchantName, onDataChange, onPaymentsLoaded }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [totalPaid, setTotalPaid] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    amount: '',
+    paymentDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+    paymentMode: 'Cash',
+    notes: '',
+  });
+
+  const merchantId = merchantProfile?._id;
+
+  const loadPayments = useCallback(async () => {
+    if (!merchantId) return;
+    setLoading(true);
+    try {
+      const { data: res } = await merchantMasterAPI.getPayments(merchantId);
+      setPayments(res.data.payments);
+      setTotalPaid(res.data.totalPaid);
+      if (onPaymentsLoaded) onPaymentsLoaded(res.data.totalPaid);
+    } catch {
+      toast.error('Failed to load payments');
+    }
+    setLoading(false);
+  }, [merchantId, onPaymentsLoaded]);
+
+  useEffect(() => { loadPayments(); }, [loadPayments]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    let finalMerchantId = merchantId;
+    if (!finalMerchantId) {
+      if (!merchantName) return toast.error('Unknown merchant name');
+      try {
+        const { data: res } = await merchantMasterAPI.findOrCreate({ name: merchantName, phone: 'NO-PHONE-' + Date.now().toString().slice(-6) });
+        finalMerchantId = res.data._id;
+      } catch (err) {
+        return toast.error('Could not auto-create merchant profile. Please create it manually.');
+      }
+    }
+    const amt = Number(form.amount);
+    if (!amt || amt <= 0) return toast.error('Amount must be greater than 0');
+    setSubmitting(true);
+    try {
+      await merchantMasterAPI.createPayment(finalMerchantId, form);
+      toast.success('Payment recorded!');
+      setForm({
+        amount: '',
+        paymentDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+        paymentMode: 'Cash',
+        notes: '',
+      });
+      setShowForm(false);
+      await loadPayments();
+      onDataChange();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to record payment');
+    }
+    setSubmitting(false);
+  };
+
+  const handleDelete = async (payId) => {
+    if (!merchantId) return;
+    try {
+      await merchantMasterAPI.deletePayment(merchantId, payId);
+      toast.success('Payment deleted');
+      await loadPayments();
+      onDataChange();
+    } catch {
+      toast.error('Delete failed');
+    }
+  };
+
+  return (
+    <div className="border-b border-outline-variant/20 shrink-0">
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-green-50/50 cursor-pointer hover:bg-green-100/50 transition-colors"
+        onClick={() => setIsOpen(v => !v)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-green-700 text-[18px]">payments</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-green-900">Payments to Merchant</span>
+          {totalPaid > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-200 text-green-900">
+              Total: ₹{fmt(totalPaid)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowForm(v => !v); if (!isOpen) setIsOpen(true); }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-green-700 text-white text-xs font-semibold hover:bg-green-800 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">{showForm ? 'close' : 'add'}</span>
+            {showForm ? 'Cancel' : 'Add Payment'}
+          </button>
+          <span className={`material-symbols-outlined text-green-700 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+            expand_more
+          </span>
+        </div>
       </div>
+
+      {/* Collapsible body */}
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        {/* Add Payment Form */}
+        {showForm && (
+          <form onSubmit={handleSubmit} className="px-4 py-3 bg-green-50/30 border-b border-green-100 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Amount (₹) *</label>
+                <input
+                  type="number" step="0.01" min="1" required
+                  value={form.amount}
+                  onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                  placeholder="e.g. 5000"
+                  className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-green-600 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Date &amp; Time *</label>
+                <input
+                  type="datetime-local" required
+                  value={form.paymentDate}
+                  onChange={e => setForm(p => ({ ...p, paymentDate: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-green-600 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Payment Mode</label>
+                <select
+                  value={form.paymentMode}
+                  onChange={e => setForm(p => ({ ...p, paymentMode: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-green-600 transition-all"
+                >
+                  {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Notes</label>
+                <input
+                  type="text"
+                  value={form.notes}
+                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Optional note"
+                  className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-green-600 transition-all"
+                />
+              </div>
+            </div>
+            <button
+              type="submit" disabled={submitting}
+              className="px-6 py-2 bg-green-700 text-white rounded-full text-xs font-semibold hover:bg-green-800 transition-all disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {submitting
+                ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                : <span className="material-symbols-outlined text-sm">save</span>}
+              {submitting ? 'Saving…' : 'Record Payment'}
+            </button>
+          </form>
+        )}
+
+        {/* Payment list */}
+        <div className="px-4 pb-3">
+          {loading ? (
+            <div className="flex justify-center py-3">
+              <span className="material-symbols-outlined animate-spin text-green-700 text-xl">progress_activity</span>
+            </div>
+          ) : payments.length === 0 ? (
+            <p className="text-xs text-on-surface-variant italic py-2">No payments recorded yet.</p>
+          ) : (
+            <div className="space-y-1.5 pt-2">
+              {payments.map(pay => (
+                <div key={pay._id} className="flex items-center justify-between bg-green-50 rounded-xl px-3 py-2 border border-green-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-green-200 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-green-700 text-[14px]">payments</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface">₹{fmt(pay.amount)}</p>
+                      <p className="text-[10px] text-on-surface-variant">
+                        {fmtDate(pay.paymentDate)} · {pay.paymentMode}
+                        {pay.notes && ` · ${pay.notes}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-on-surface-variant/60">{pay.paymentId}</span>
+                    <button
+                      onClick={() => handleDelete(pay._id)}
+                      className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
+                      title="Delete payment"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>{/* end collapsible body */}
     </div>
   );
 }
 
 // ── Invoice Download Section ──────────────────────────────────────────────────
 function InvoiceSection({ merchantName }) {
+  const [isOpen, setIsOpen] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate]     = useState(today);
@@ -330,15 +562,26 @@ function InvoiceSection({ merchantName }) {
     <>
       {/* ── Section card ── */}
       <div className="mx-4 mb-3 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <span className="material-symbols-outlined text-primary text-lg">receipt_long</span>
-          <p className="text-sm font-bold text-primary uppercase tracking-wider">
-            Download Invoice
-          </p>
+        {/* Header (Clickable for toggle) */}
+        <div 
+          className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-primary/5 transition-colors"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-lg">receipt_long</span>
+            <p className="text-sm font-bold text-primary uppercase tracking-wider">
+              Download Invoice
+            </p>
+          </div>
+          <span className={`material-symbols-outlined text-primary transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+            expand_more
+          </span>
         </div>
 
-        <div className="px-4 pb-4 space-y-3">
+        {/* Expandable Body */}
+        <div 
+          className={`px-4 space-y-3 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100 pb-4' : 'max-h-0 opacity-0 pb-0'}`}
+        >
           <p className="text-xs text-on-surface-variant">
             Select a date range to generate a payment voucher for all transactions within that period.
           </p>
@@ -509,6 +752,7 @@ function TransactionCard({ txn, index, onDataChange }) {
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePayId, setDeletePayId] = useState(null);
+  const [isPaySectionOpen, setIsPaySectionOpen] = useState(false);
 
   // Load payments when card is expanded
   const loadPayments = useCallback(async () => {
@@ -525,7 +769,6 @@ function TransactionCard({ txn, index, onDataChange }) {
   const handleToggle = () => {
     const next = !open;
     setOpen(next);
-    if (next && !payData) loadPayments();
   };
 
   // Add payment
@@ -681,9 +924,9 @@ function TransactionCard({ txn, index, onDataChange }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-on-surface-variant">
-                    Labor ({txn.laborCount} × ₹{txn.laborChargePerWorker})
+                    Labour ({txn.labourHeadCount ?? txn.laborCount ?? 0} × ₹{txn.labourCharge ?? txn.laborChargePerWorker ?? 0})
                   </span>
-                  <span className="font-medium text-error">− ₹{fmt(txn.totalLaborCharges)}</span>
+                  <span className="font-medium text-error">− ₹{fmt(txn.labourAmount || txn.totalLaborCharges || ((txn.labourHeadCount || txn.laborCount || 0) * (txn.labourCharge || txn.laborChargePerWorker || 0)))}</span>
                 </div>
                 <div className="flex justify-between border-t border-outline-variant/20 pt-1.5">
                   <span className="font-semibold text-on-surface-variant">Net Payable</span>
@@ -693,21 +936,10 @@ function TransactionCard({ txn, index, onDataChange }) {
                   <span className="text-on-surface-variant">Advance</span>
                   <span className="font-medium text-error">− ₹{fmt(txn.advancePayment)}</span>
                 </div>
-                <div className="flex justify-between border-t border-outline-variant/20 pt-1.5 pb-1">
-                  <span className="font-semibold">Remaining (at creation)</span>
-                  <span className="font-bold text-on-surface">₹{fmt(txn.finalPayable)}</span>
-                </div>
-
-                <div className="flex justify-between pt-1">
-                  <span className="font-bold text-primary">Current Balance</span>
-                  <span className={`font-bold ${txn.balance > 0 ? 'text-orange-600' : txn.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {txn.balance < 0 ? `Adv ₹${fmt(Math.abs(txn.balance))}` : `₹${fmt(txn.balance)}`}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
-
+          
           {/* Notes */}
           {txn.notes && (
             <p className="text-xs text-on-surface-variant bg-surface-container/40 rounded-xl px-4 py-2.5 italic">
@@ -715,222 +947,244 @@ function TransactionCard({ txn, index, onDataChange }) {
             </p>
           )}
 
-          {/* ── Payment section ── */}
-          {loadingPay ? (
-            <div className="flex justify-center py-4">
-              <span className="material-symbols-outlined animate-spin text-primary text-2xl">
-                progress_activity
+          {/* ── Payment section Header (Collapsible) ── */}
+          <div 
+            className="flex items-center justify-between p-3 rounded-xl bg-orange-50/50 cursor-pointer hover:bg-orange-100/50 transition-colors border border-orange-100"
+            onClick={() => {
+              const next = !isPaySectionOpen;
+              setIsPaySectionOpen(next);
+              if (next && !payData) loadPayments();
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-orange-600 text-[18px]">receipt_long</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-orange-900">Transaction Payments</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${txn.balance <= 0 ? 'bg-green-200 text-green-900' : 'bg-orange-200 text-orange-900'}`}>
+                {txn.balance <= 0 ? 'Fully Paid' : `Due: ₹${fmt(txn.balance)}`}
               </span>
             </div>
-          ) : payData ? (
-            <>
-              {/* Payment summary bar */}
-              <div
-                className={`rounded-xl p-3 flex flex-wrap items-center gap-4 text-sm border ${
-                  isPaid
-                    ? 'bg-green-50/50 border-green-200'
-                    : 'bg-orange-50/50 border-orange-200'
-                }`}
-              >
-                <div>
-                  <span className="text-on-surface-variant text-xs">Total Paid (incl. Adv)</span>
-                  <p className="font-bold text-on-surface">₹{fmt(payData.summary.totalPaid + (txn.advancePayment || 0))}</p>
-                </div>
-                <div>
-                  <span className="text-on-surface-variant text-xs">Payable Balance</span>
-                  <p className={`font-bold ${isPaid ? 'text-green-600' : 'text-orange-600'}`}>
-                    ₹{fmt(payData.summary.remainingBalance)}
-                  </p>
-                </div>
-                <div className="ml-auto">
-                  {isPaid ? (
-                    <span className="flex items-center gap-1 text-green-600 font-semibold text-xs">
-                      <span className="material-symbols-outlined text-sm">check_circle</span>
-                      Fully Paid
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (!showPayForm) {
-                          setPayForm((p) => ({
-                            ...p,
-                            amount: String(payData.summary.remainingBalance),
-                          }));
-                        }
-                        setShowPayForm((v) => !v);
-                      }}
-                      className="px-4 py-1.5 bg-gradient-to-br from-secondary to-primary text-white rounded-full text-xs font-semibold flex items-center gap-1 shadow hover:shadow-md transition-all active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-sm">
-                        {showPayForm ? 'close' : 'payments'}
-                      </span>
-                      {showPayForm ? 'Cancel' : 'Record Payment'}
-                    </button>
-                  )}
-                </div>
+            <span className={`material-symbols-outlined text-orange-600 transition-transform duration-300 ${isPaySectionOpen ? 'rotate-180' : ''}`}>
+              expand_more
+            </span>
+          </div>
+
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isPaySectionOpen ? 'max-h-[1000px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+            {loadingPay ? (
+              <div className="flex justify-center py-4">
+                <span className="material-symbols-outlined animate-spin text-primary text-2xl">
+                  progress_activity
+                </span>
               </div>
-
-              {/* Inline pay form */}
-              {showPayForm && !isPaid && (
-                <form
-                  onSubmit={handlePay}
-                  className="bg-surface-container-low/50 rounded-xl p-4 space-y-3 border border-primary/20"
+            ) : payData ? (
+              <>
+                {/* Payment summary bar */}
+                <div
+                  className={`rounded-xl p-3 flex flex-wrap items-center gap-4 text-sm border ${
+                    isPaid
+                      ? 'bg-green-50/50 border-green-200'
+                      : 'bg-orange-50/50 border-orange-200'
+                  }`}
                 >
-                  <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                    New Payment
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Amount */}
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
-                        Amount (₹) *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        max={payData.summary.remainingBalance}
-                        value={payForm.amount}
-                        onChange={(e) =>
-                          setPayForm((p) => ({ ...p, amount: e.target.value }))
-                        }
-                        placeholder={`Max ₹${fmt(payData.summary.remainingBalance)}`}
-                        required
-                        className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPayForm((p) => ({
-                            ...p,
-                            amount: String(payData.summary.remainingBalance),
-                          }))
-                        }
-                        className="mt-1 text-[11px] text-primary font-semibold hover:underline"
-                      >
-                        Pay full (₹{fmt(payData.summary.remainingBalance)})
-                      </button>
-                    </div>
-
-                    {/* Date */}
-                    <div>
-                      <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
-                        Date *
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={payForm.paymentDate}
-                        onChange={(e) =>
-                          setPayForm((p) => ({ ...p, paymentDate: e.target.value }))
-                        }
-                        required
-                        className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
-                      />
-                    </div>
-
-                    {/* Mode */}
-                    <div>
-                      <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
-                        Mode
-                      </label>
-                      <select
-                        value={payForm.paymentMode}
-                        onChange={(e) =>
-                          setPayForm((p) => ({ ...p, paymentMode: e.target.value }))
-                        }
-                        className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
-                      >
-                        {PAYMENT_MODES.map((m) => (
-                          <option key={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
-                        Notes
-                      </label>
-                      <input
-                        type="text"
-                        value={payForm.notes}
-                        onChange={(e) =>
-                          setPayForm((p) => ({ ...p, notes: e.target.value }))
-                        }
-                        placeholder="Optional remarks"
-                        className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
-                      />
-                    </div>
+                  <div>
+                    <span className="text-on-surface-variant text-xs">Total Paid (incl. Adv)</span>
+                    <p className="font-bold text-on-surface">₹{fmt(payData.summary.totalPaid + (txn.advancePayment || 0))}</p>
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-2.5 bg-gradient-to-br from-secondary to-primary text-white rounded-xl font-semibold text-sm shadow hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {submitting && (
-                      <span className="material-symbols-outlined animate-spin text-sm">
-                        progress_activity
+                  <div>
+                    <span className="text-on-surface-variant text-xs">Payable Balance</span>
+                    <p className={`font-bold ${isPaid ? 'text-green-600' : 'text-orange-600'}`}>
+                      ₹{fmt(payData.summary.remainingBalance)}
+                    </p>
+                  </div>
+                  <div className="ml-auto">
+                    {isPaid ? (
+                      <span className="flex items-center gap-1 text-green-600 font-semibold text-xs">
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        Fully Paid
                       </span>
-                    )}
-                    Confirm Payment
-                  </button>
-                </form>
-              )}
-
-              {/* Payment history list */}
-              {payData.payments.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-primary">receipt_long</span>
-                    Payment History ({payData.payments.length})
-                  </p>
-                  <div className="space-y-2">
-                    {payData.payments.map((pay, idx) => (
-                      <div
-                        key={pay._id}
-                        className="flex items-center justify-between bg-surface-container-low/50 rounded-xl px-4 py-2.5 gap-3"
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (!showPayForm) {
+                            setPayForm((p) => ({
+                              ...p,
+                              amount: String(payData.summary.remainingBalance),
+                            }));
+                          }
+                          setShowPayForm((v) => !v);
+                        }}
+                        className="px-4 py-1.5 bg-gradient-to-br from-secondary to-primary text-white rounded-full text-xs font-semibold flex items-center gap-1 shadow hover:shadow-md transition-all active:scale-95"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                              idx === 0
-                                ? 'bg-primary/15 text-primary'
-                                : 'bg-surface-container text-on-surface-variant'
-                            }`}
-                          >
-                            {idx + 1}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-on-surface">
-                              {fmtDate(pay.paymentDate)}
-                            </p>
-                            <p className="text-xs text-on-surface-variant">
-                              {pay.paymentMode}
-                              {pay.notes && ` · ${pay.notes}`}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <p className="font-bold text-primary text-sm">₹{fmt(pay.amount)}</p>
-                          <button
-                            onClick={() => {
-                              setDeletePayId(pay._id);
-                              setShowDeleteConfirm(true);
-                            }}
-                            className="p-1 rounded-lg text-error hover:bg-error/10 transition-colors"
-                            title="Delete payment"
-                          >
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        <span className="material-symbols-outlined text-sm">
+                          {showPayForm ? 'close' : 'payments'}
+                        </span>
+                        {showPayForm ? 'Cancel' : 'Record Payment'}
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
-            </>
-          ) : null}
+
+                {/* Inline pay form */}
+                {showPayForm && !isPaid && (
+                  <form
+                    onSubmit={handlePay}
+                    className="bg-surface-container-low/50 rounded-xl p-4 space-y-3 border border-primary/20 mt-3"
+                  >
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                      New Payment
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Amount */}
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
+                          Amount (₹) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          max={payData.summary.remainingBalance}
+                          value={payForm.amount}
+                          onChange={(e) =>
+                            setPayForm((p) => ({ ...p, amount: e.target.value }))
+                          }
+                          placeholder={`Max ₹${fmt(payData.summary.remainingBalance)}`}
+                          required
+                          className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPayForm((p) => ({
+                              ...p,
+                              amount: String(payData.summary.remainingBalance),
+                            }))
+                          }
+                          className="mt-1 text-[11px] text-primary font-semibold hover:underline"
+                        >
+                          Pay full (₹{fmt(payData.summary.remainingBalance)})
+                        </button>
+                      </div>
+
+                      {/* Date */}
+                      <div>
+                        <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
+                          Date *
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={payForm.paymentDate}
+                          onChange={(e) =>
+                            setPayForm((p) => ({ ...p, paymentDate: e.target.value }))
+                          }
+                          required
+                          className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
+                        />
+                      </div>
+
+                      {/* Mode */}
+                      <div>
+                        <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
+                          Mode
+                        </label>
+                        <select
+                          value={payForm.paymentMode}
+                          onChange={(e) =>
+                            setPayForm((p) => ({ ...p, paymentMode: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
+                        >
+                          {PAYMENT_MODES.map((m) => (
+                            <option key={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Notes */}
+                      <div className="col-span-2">
+                        <label className="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">
+                          Notes
+                        </label>
+                        <input
+                          type="text"
+                          value={payForm.notes}
+                          onChange={(e) =>
+                            setPayForm((p) => ({ ...p, notes: e.target.value }))
+                          }
+                          placeholder="Optional remarks"
+                          className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:border-primary transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full py-2.5 bg-gradient-to-br from-secondary to-primary text-white rounded-xl font-semibold text-sm shadow hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+                    >
+                      {submitting && (
+                        <span className="material-symbols-outlined animate-spin text-sm">
+                          progress_activity
+                        </span>
+                      )}
+                      Confirm Payment
+                    </button>
+                  </form>
+                )}
+
+                {/* Payment history list */}
+                {payData.payments.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm text-primary">receipt_long</span>
+                      Payment History ({payData.payments.length})
+                    </p>
+                    <div className="space-y-2">
+                      {payData.payments.map((pay, idx) => (
+                        <div
+                          key={pay._id}
+                          className="flex items-center justify-between bg-surface-container-low/50 rounded-xl px-4 py-2.5 gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                                idx === 0
+                                  ? 'bg-primary/15 text-primary'
+                                  : 'bg-surface-container text-on-surface-variant'
+                              }`}
+                            >
+                              {idx + 1}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-on-surface">
+                                {fmtDate(pay.paymentDate)}
+                              </p>
+                              <p className="text-xs text-on-surface-variant">
+                                {pay.paymentMode}
+                                {pay.notes && ` · ${pay.notes}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className="font-bold text-primary text-sm">₹{fmt(pay.amount)}</p>
+                            <button
+                              onClick={() => {
+                                setDeletePayId(pay._id);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="p-1 rounded-lg text-error hover:bg-error/10 transition-colors"
+                              title="Delete payment"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -958,28 +1212,36 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
   const [merchantProfile, setMerchantProfile] = useState(null);
   const [loading, setLoading]           = useState(true);
   const [totalStandaloneAdv, setTotalStandaloneAdv] = useState(0);
+  const [totalMasterPayments, setTotalMasterPayments] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch profile
+      let profile = null;
       try {
         const { data: mRes } = await merchantMasterAPI.search(merchantName);
         if (mRes.data && mRes.data.length > 0) {
-          setMerchantProfile(mRes.data.find(m => m.name.toLowerCase() === merchantName.toLowerCase()) || mRes.data[0]);
+          profile = mRes.data.find(m => m.name.toLowerCase() === merchantName.toLowerCase()) || mRes.data[0];
         }
       } catch (err) {
         console.error('Failed to load merchant profile', err);
       }
 
-      // Fetch all transactions for this merchant (no pagination limit needed here;
-      // we pass a high limit so we always get the complete history)
+      // Fetch all transactions for this merchant
       const { data: res } = await merchantTxnAPI.getAll({
         merchantName,
         sort: '-transactionDate',
         limit: 500,
       });
       setTransactions(res.data);
+
+      if (profile) {
+        setMerchantProfile(profile);
+      } else if (res.data && res.data.length > 0 && res.data[0].merchant) {
+        setMerchantProfile({ _id: res.data[0].merchant, name: merchantName });
+      } else {
+        setMerchantProfile(null);
+      }
     } catch {
       toast.error('Failed to load merchant history');
     }
@@ -1016,9 +1278,12 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
 
   // Called by AdvanceSection whenever advances are loaded/changed
   const handleAdvancesLoaded = (total) => setTotalStandaloneAdv(total);
+  
+  // Called by PaymentSection whenever payments are loaded/changed
+  const handlePaymentsLoaded = (total) => setTotalMasterPayments(total);
 
-  // Net payable = outstanding balance across txns minus standalone advances already given
-  const netPayableAfterAdv = Math.max(0, summary.totalBalance - totalStandaloneAdv);
+  // Net payable = outstanding balance across txns minus standalone advances minus general payments
+  const netPayableAfterAdv = Math.max(0, summary.totalBalance - totalStandaloneAdv - totalMasterPayments);
 
   return createPortal(
     <div
@@ -1103,11 +1368,22 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
         )}
 
         {/* ── Advance Payments Section ── */}
-        {!loading && merchantProfile && (
+        {!loading && (
           <AdvanceSection
             merchantProfile={merchantProfile}
+            merchantName={merchantName}
             onDataChange={handleDataChange}
             onAdvancesLoaded={handleAdvancesLoaded}
+          />
+        )}
+
+        {/* ── Payment to Merchant Section ── */}
+        {!loading && (
+          <PaymentSection
+            merchantProfile={merchantProfile}
+            merchantName={merchantName}
+            onDataChange={handleDataChange}
+            onPaymentsLoaded={handlePaymentsLoaded}
           />
         )}
 

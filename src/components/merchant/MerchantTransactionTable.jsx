@@ -101,10 +101,10 @@ export default function MerchantTransactionTable({ items, loading, onViewDetails
                   ₹{(item.grossAmount || 0).toLocaleString('en-IN')}
                 </td>
                 <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">
-                  {item.laborCount} × ₹{item.laborChargePerWorker}
+                  {item.labourHeadCount ?? item.laborCount ?? 0} × ₹{item.labourCharge ?? item.laborChargePerWorker ?? 0}
                 </td>
                 <td className="px-4 py-4 text-on-surface-variant">
-                  ₹{(item.totalLaborCharges || 0).toLocaleString('en-IN')}
+                  ₹{(item.labourAmount || item.totalLaborCharges || ((item.labourHeadCount || item.laborCount || 0) * (item.labourCharge || item.laborChargePerWorker || 0))).toLocaleString('en-IN')}
                 </td>
                 <td className="px-4 py-4 text-on-surface-variant">₹{item.advancePayment}</td>
 

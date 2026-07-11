@@ -108,11 +108,6 @@ export default function MerchantTransactionForm({ form, editing, calc, submittin
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container-low/50 text-sm text-on-surface focus:outline-none focus:border-primary transition-all"
               />
             </div>
-            {form.merchantPhone && !form.merchantId && (
-              <p className="text-xs text-orange-500 mt-1">
-                ⚠ Select merchant from dropdown to link
-              </p>
-            )}
             {form.merchantId && form.merchantPhone && (
               <p className="text-xs text-green-600 mt-1">✓ Linked to merchant record</p>
             )}
@@ -220,33 +215,33 @@ export default function MerchantTransactionForm({ form, editing, calc, submittin
             required
           />
           <InputField
-            label="Labor Count"
-            name="laborCount"
+            label="Labour Head Count"
+            name="labourHeadCount"
             type="number"
             step="1"
             min="0"
-            value={form.laborCount}
+            value={form.labourHeadCount}
             onChange={handleChange}
             placeholder="0"
           />
           <InputField
             label="Charge / Worker (₹)"
-            name="laborChargePerWorker"
+            name="labourCharge"
             type="number"
             step="0.01"
             min="0"
-            value={form.laborChargePerWorker}
+            value={form.labourCharge}
             onChange={handleChange}
             placeholder="0.00"
           />
 
-          {/* Derived: Total Labor */}
+          {/* Derived: Total Labour */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">
-              Total Labor (₹)
+              Total Labour (₹)
             </label>
             <div className="w-full px-4 py-2.5 rounded-xl bg-surface-container/30 border border-outline-variant/30 text-sm text-on-surface-variant font-semibold">
-              ₹{(calc.totalLaborCharges || 0).toFixed(2)}
+              ₹{(calc.labourAmount || 0).toFixed(2)}
             </div>
           </div>
         </div>
@@ -274,7 +269,7 @@ export default function MerchantTransactionForm({ form, editing, calc, submittin
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
             <div>
               <CalcRow label="Net Qty × Rate" value={calc.grossAmount} />
-              <CalcRow label={`Labor (${form.laborCount || 0} workers × ₹${form.laborChargePerWorker || 0})`} value={calc.totalLaborCharges} />
+              <CalcRow label={`Labour (${form.labourHeadCount || 0} heads × ₹${form.labourCharge || 0})`} value={calc.labourAmount} />
               <CalcRow label="Net Payable" value={calc.netPayable} bold />
             </div>
             <div>
