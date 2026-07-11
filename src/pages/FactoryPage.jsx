@@ -198,54 +198,75 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row.');
 
-  // Normalize headers: lowercase, remove ALL non-alpha chars (spaces, dots, brackets, etc.)
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+  // Find the actual header row (look for 'date' and 'rate' or 'qnty')
+  let headerIndex = 0;
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const l = lines[i].toLowerCase();
+    if ((l.includes('date') || l.includes('dt')) && (l.includes('rate') || l.includes('qnty') || l.includes('qty'))) {
+      headerIndex = i;
+      break;
+    }
+  }
 
-  // Flexible column name aliases — covers "TOTAL QNTY.", "QNTY", "NET QNTY.", etc.
+  // Extract buyerName from row 0 if header isn't row 0
+  let defaultBuyerName = '';
+  if (headerIndex > 0) {
+    // The very first non-empty cell in row 0 is assumed to be the Buyer Name
+    defaultBuyerName = lines[0].split(',').map(c => c.trim().replace(/^"|"$/g, ''))
+      .find(c => c && !c.toLowerCase().includes('sl n')) || '';
+  }
+
+  // Normalize headers: lowercase, remove ALL non-alpha chars
+  const headers = lines[headerIndex].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+
+  // Flexible column name aliases
   const colMap = {
     date:           ['date','saledate','dt'],
     buyerName:      ['buyername','name','buyer','clientname','client'],
     totalQuantity:  ['totalquantity','totalqty','totalqnty','qty','qnty','quantity','grossqty','grossqnty','totqty','totqnty'],
-    lessPercentage: ['lesspercentage','lesspercent','less','lesspct','losspercent','losspercentage','lesspercen'],
+    lessPercentage: ['lesspercentage','lesspercent','less','lesspct','losspercent','losspercentage','lesspercen','fine','finepercent'],
     rate:           ['rate','price','pricepkg','ratepkg','priceperkg','rateperkg'],
     advance:        ['advance','adv','advancepaid'],
-    dueDate:        ['duedate','dueon','duedt','dueby'],  // NO 'due' — that's the amount column in Excel
+    dueDate:        ['duedate','dueon','duedt','dueby'],
     remarks:        ['remarks','remark','note','notes','comment','comments'],
   };
 
-  // Skip columns that are pre-calculated in Excel (we recompute them)
   const skipCols = new Set(['lessqty','lessqnty','netqty','netqnty','nqty','totalamount','totalamt','amount']);
 
   const idx = {};
   for (const [field, aliases] of Object.entries(colMap)) {
-    // find first header that matches an alias AND is not a skip column
     const found = headers.findIndex(h => aliases.includes(h) && !skipCols.has(h));
-    idx[field] = found; // -1 means not found
+    idx[field] = found;
   }
 
-  // ── helper: strip Excel formatting from numbers (%,  spaces, commas, ₹, $)
   const cleanNum = (raw) => raw.replace(/[^0-9.-]/g, '');
-  // ── helper: confirm a string is a plausible date (not a bare number like '38')
   const isValidDate = (raw) => raw && !/^\d{1,5}$/.test(raw.trim());
 
   const rows = [];
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = headerIndex + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    
+    // Check if this row is a footer summary (e.g., 'TOTAL', 'CASH', 'ONLINE')
+    const rowText = lines[i].toLowerCase();
+    if (rowText.includes('total') && !rowText.includes('-')) continue; // Skip totals like "TOTAL 210567"
+    if (rowText.includes('cash') || rowText.includes('online')) continue; // Skip footer advances
+
     const get  = (field) => (idx[field] !== undefined && idx[field] !== -1) ? (cols[idx[field]] || '') : '';
 
-    const rawBuyer = get('buyerName');
-    // Skip summary/total rows (no buyer name or numeric-only buyer cell)
+    const rawBuyer = get('buyerName') || defaultBuyerName;
     if (!rawBuyer || /^total/i.test(rawBuyer) || /^\d+(\.\d+)?$/.test(rawBuyer)) continue;
 
     const rawTotalQty  = cleanNum(get('totalQuantity'));
+    // If there's no qty or rate, and it isn't just missing one, skip it (like empty row 12)
+    if (!rawTotalQty) continue;
+
     const rawRate      = cleanNum(get('rate'));
-    const rawLessPct   = cleanNum(get('lessPercentage')) || '2';  // strip trailing '%'
+    const rawLessPct   = cleanNum(get('lessPercentage')) || '2';
     const rawAdvance   = cleanNum(get('advance')) || '0';
     const rawDateStr   = get('date');
     const rawDueDateStr = get('dueDate');
 
-    // Only convert to ISO if value looks like a date (not a bare number)
     const rawDate    = toISODate(rawDateStr);
     const rawDueDate = isValidDate(rawDueDateStr) ? toISODate(rawDueDateStr) : '';
 
@@ -261,11 +282,11 @@ function parseCSV(text) {
     };
 
     const errs = [];
-    if (!row.buyerName)                                              errs.push('Buyer Name missing');
-    if (!row.totalQuantity || isNaN(+row.totalQuantity) || +row.totalQuantity <= 0) errs.push('Invalid Total Qty (must be > 0)');
-    if (!row.rate          || isNaN(+row.rate)          || +row.rate <= 0)          errs.push('Invalid Rate (must be > 0)');
-    if (isNaN(+row.lessPercentage) || +row.lessPercentage < 0 || +row.lessPercentage > 100) errs.push('Invalid Less % (0-100)');
-    rows.push({ ...row, _row: i, _errors: errs });
+    if (!row.buyerName) errs.push('Buyer Name missing');
+    if (!row.totalQuantity || isNaN(+row.totalQuantity) || +row.totalQuantity <= 0) errs.push('Invalid Total Qty (must be positive)');
+    if (!row.rate          || isNaN(+row.rate)          || +row.rate <= 0)          errs.push('Invalid Rate (must be positive)');
+    
+    rows.push({ ...row, _row: i + 1, _errors: errs });
   }
   return rows;
 }

@@ -157,8 +157,8 @@ export default function TransactionDetailModal({ txnId, onClose }) {
               <span className="material-symbols-outlined text-base text-primary">calculate</span>
               Financial Breakdown
             </h3>
-            <InfoRow label="Gross Amount (Net Qty × Rate)" value={`₹${fmt(txn?.grossAmount)}`} />
-            <InfoRow label={`Labor (${txn?.laborCount} × ₹${txn?.laborChargePerWorker})`} value={`− ₹${fmt(txn?.totalLaborCharges)}`} />
+            <InfoRow label="Gross Amount" value={`₹${fmt(txn?.grossAmount)}`} />
+            <InfoRow label={`Labour (${txn?.labourHeadCount ?? txn?.laborCount ?? 0} × ₹${txn?.labourCharge ?? txn?.laborChargePerWorker ?? 0})`} value={`− ₹${fmt(txn?.labourAmount || txn?.totalLaborCharges || ((txn?.labourHeadCount || txn?.laborCount || 0) * (txn?.labourCharge || txn?.laborChargePerWorker || 0)))}`} />
             <InfoRow label="Net Payable" value={`₹${fmt(txn?.netPayable)}`} highlight />
             <InfoRow label="Advance Payment" value={`− ₹${fmt(txn?.advancePayment)}`} />
             <div className="mt-2 pt-3 border-t-2 border-primary/20">

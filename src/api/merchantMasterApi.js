@@ -12,4 +12,9 @@ export const merchantMasterAPI = {
   getAdvances:   (merchantId)             => API.get(`/merchants/${merchantId}/advances`),
   createAdvance: (merchantId, data)       => API.post(`/merchants/${merchantId}/advances`, data),
   deleteAdvance: (merchantId, advanceId)  => API.delete(`/merchants/${merchantId}/advances/${advanceId}`),
+
+  // ── Merchant-Level Payments ───────────────────────────────────
+  getPayments:      (merchantId)            => API.get(`/merchants/${merchantId}/payments`),
+  createPayment:    (merchantId, data)      => API.post(`/merchants/${merchantId}/payments`, data),
+  deletePayment:    (merchantId, paymentId) => API.delete(`/merchants/${merchantId}/payments/${paymentId}`),
 };

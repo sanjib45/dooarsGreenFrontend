@@ -19,6 +19,7 @@ const ROLES = ['Plucker', 'Factory Worker', 'Supervisor', 'Maintenance', 'Other'
 const empty = {
   name:        '',
   role:        '',
+  headCount:   '1',
   laborCharge: '',
   joinDate:    new Date().toISOString().slice(0, 10),
   notes:       '',
@@ -94,13 +95,17 @@ export default function LaborPage() {
     e.preventDefault();
     if (!form.name.trim())           { toast.error('Name is required'); return; }
     if (!form.role)                  { toast.error('Please select a role'); return; }
-    if (!form.laborCharge || Number(form.laborCharge) < 0) {
+    if (!form.headCount || Number(form.headCount) < 1) {
+      toast.error('Head count must be at least 1'); return;
+    }
+    if (form.laborCharge === '' || Number(form.laborCharge) < 0) {
       toast.error('Labor charge must be 0 or greater'); return;
     }
     try {
       const payload = {
         name:        form.name.trim(),
         role:        form.role,
+        headCount:   Number(form.headCount),
         laborCharge: Number(form.laborCharge),
         joinDate:    form.joinDate,
         notes:       form.notes?.trim() || '',
@@ -124,6 +129,7 @@ export default function LaborPage() {
     setForm({
       name:        item.name,
       role:        item.role,
+      headCount:   String(item.headCount || 1),
       laborCharge: String(item.laborCharge),
       joinDate:    item.joinDate?.slice(0, 10) || new Date().toISOString().slice(0, 10),
       notes:       item.notes || '',
@@ -219,7 +225,7 @@ export default function LaborPage() {
             {editing ? 'Edit Worker' : 'Add New Worker'}
           </h2>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
             {/* Name */}
             <div>
@@ -252,10 +258,27 @@ export default function LaborPage() {
               </select>
             </div>
 
+            {/* Head Count */}
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">
+                Head Count *
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={form.headCount}
+                onChange={(e) => setForm({ ...form, headCount: e.target.value })}
+                placeholder="1"
+                required
+                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container-low/50 text-sm text-on-surface focus:outline-none focus:border-primary transition-all"
+              />
+            </div>
+
             {/* Labor Charge */}
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">
-                Labor Charge (₹) *
+                Rate/Head (₹) *
               </label>
               <input
                 type="number"
@@ -284,7 +307,7 @@ export default function LaborPage() {
             </div>
 
             {/* Notes */}
-            <div className="sm:col-span-2 lg:col-span-4">
+            <div className="sm:col-span-2 lg:col-span-5">
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">Notes</label>
               <textarea
                 value={form.notes}
@@ -296,7 +319,7 @@ export default function LaborPage() {
             </div>
 
             {/* Buttons */}
-            <div className="sm:col-span-2 lg:col-span-4 flex gap-3">
+            <div className="sm:col-span-2 lg:col-span-5 flex gap-3">
               <button
                 type="submit"
                 className="px-6 py-3 bg-gradient-to-br from-secondary to-primary text-white rounded-full font-semibold text-sm shadow-lg hover:shadow-xl transition-all active:scale-95"
@@ -359,7 +382,7 @@ export default function LaborPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-surface border-y border-outline-variant/20">
-                {['Sl. No.', 'Name', 'Role', 'Labor Charge (₹)', 'Payment Status', 'Join Date', 'Actions'].map((h) => (
+                {['Sl. No.', 'Name', 'Role', 'Head Count', 'Rate/Head (₹)', 'Total Payable', 'Status', 'Actions'].map((h) => (
                   <th key={h} className="px-4 py-3.5 text-on-surface-variant font-bold text-sm whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -402,21 +425,29 @@ export default function LaborPage() {
                       </span>
                     </td>
 
+                    {/* Head Count */}
+                    <td className="px-4 py-4 font-semibold text-on-surface">
+                      {item.headCount || 1}
+                    </td>
+
                     {/* Labor Charge */}
-                    <td className="px-4 py-4 font-bold text-on-surface">
+                    <td className="px-4 py-4 text-on-surface-variant">
                       ₹{fmt(item.laborCharge)}
+                    </td>
+
+                    {/* Total */}
+                    <td className="px-4 py-4 font-bold text-primary">
+                      ₹{fmt(item.totalPayable || (item.headCount || 1) * item.laborCharge)}
                     </td>
 
                     {/* Payment Status */}
                     <td className="px-4 py-4">
                       <PayBadge status={item.paymentStatus} />
-                    </td>
-
-                    {/* Join Date */}
-                    <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap text-xs">
-                      {new Date(item.joinDate).toLocaleDateString('en-IN', {
-                        day: '2-digit', month: 'short', year: 'numeric',
-                      })}
+                      <div className="text-[10px] text-on-surface-variant mt-1 ml-1">
+                         {new Date(item.joinDate).toLocaleDateString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                         })}
+                      </div>
                     </td>
 
                     {/* Actions */}

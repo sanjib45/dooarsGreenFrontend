@@ -20,6 +20,7 @@ import MerchantTransactionForm from '../components/merchant/MerchantTransactionF
 import MerchantTableFilters from '../components/merchant/MerchantTableFilters';
 import MerchantTransactionTable from '../components/merchant/MerchantTransactionTable';
 import CustomDateRangeModal from '../components/merchant/CustomDateRangeModal';
+import CsvImportModal from '../components/CsvImportModal';
 
 // ── Default empty form ────────────────────────────────────────────────────────
 const emptyForm = {
@@ -33,8 +34,8 @@ const emptyForm = {
   lessPercent: '',
   fineLeaf: '',
   ratePerKg: '',
-  laborCount: '',
-  laborChargePerWorker: '',
+  labourHeadCount: '',
+  labourCharge: '',
   advancePayment: '',
   notes: '',
 };
@@ -64,6 +65,9 @@ export default function MerchantPage() {
   // ── Custom date modal ─────────────────────────────────────────────────────────
   const [showCustomDateModal, setShowCustomDateModal] = useState(false);
   const [tempDates, setTempDates] = useState({ start: '', end: '' });
+
+  // ── Import modal ──────────────────────────────────────────────────────────────
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // ── Delete confirmation ───────────────────────────────────────────────────────
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -196,8 +200,8 @@ export default function MerchantPage() {
         lessPercent:         Number(form.lessPercent)         || 0,
         fineLeaf:            Number(form.fineLeaf)            || 0,
         ratePerKg:           Number(form.ratePerKg),
-        laborCount:          Number(form.laborCount)          || 0,
-        laborChargePerWorker: Number(form.laborChargePerWorker) || 0,
+        labourHeadCount:     Number(form.labourHeadCount)     || 0,
+        labourCharge:        Number(form.labourCharge)        || 0,
         advancePayment:      Number(form.advancePayment)      || 0,
         notes:               form.notes?.trim() || '',
       };
@@ -234,16 +238,16 @@ export default function MerchantPage() {
     setForm({
       merchantName:         item.merchantName,
       merchantId:           item.merchant || '',
-      merchantPhone:        '',
-      merchantObj:          item.merchant ? { _id: item.merchant, name: item.merchantName, phone: '' } : null,
+      merchantPhone:        item.merchantPhone || '',
+      merchantObj:          { _id: item.merchant || undefined, name: item.merchantName, phone: item.merchantPhone || '' },
       teaType:              item.teaType,
       transactionDate:      item.transactionDate?.slice(0, 16) || '',
       grossQty:             String(item.grossQty),
       lessPercent:          String(item.lessPercent),
       fineLeaf:             String(item.fineLeaf || ''),
       ratePerKg:            String(item.ratePerKg),
-      laborCount:           String(item.laborCount),
-      laborChargePerWorker: String(item.laborChargePerWorker),
+      labourHeadCount:      String(item.labourHeadCount ?? item.laborCount ?? 0),
+      labourCharge:         String(item.labourCharge ?? item.laborChargePerWorker ?? 0),
       advancePayment:       String(item.advancePayment),
       notes:                item.notes || '',
     });
@@ -290,20 +294,29 @@ export default function MerchantPage() {
             Procurement transactions — track tea purchases and payments.
           </p>
         </div>
-        <button
-          id="btn-new-transaction"
-          onClick={() => {
-            if (showForm) {
-              cancelForm();
-            } else {
-              setShowForm(true);
-            }
-          }}
-          className="px-6 py-3 bg-gradient-to-br from-secondary to-primary text-white rounded-full font-semibold text-sm flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-95"
-        >
-          <span className="material-symbols-outlined">{showForm ? 'close' : 'add'}</span>
-          {showForm ? 'Cancel' : 'New Transaction'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-surface text-secondary border-2 border-secondary/20 rounded-full hover:bg-secondary hover:text-white transition-all text-sm font-semibold shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[20px]">upload_file</span>
+            Import CSV
+          </button>
+          <button
+            id="btn-new-transaction"
+            onClick={() => {
+              if (showForm) {
+                cancelForm();
+              } else {
+                setShowForm(true);
+              }
+            }}
+            className="px-6 py-3 bg-gradient-to-br from-secondary to-primary text-white rounded-full font-semibold text-sm flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-95"
+          >
+            <span className="material-symbols-outlined">{showForm ? 'close' : 'add'}</span>
+            {showForm ? 'Cancel' : 'New Transaction'}
+          </button>
+        </div>
       </div>
 
       {/* ── Stats ── */}
@@ -387,6 +400,18 @@ export default function MerchantPage() {
         onApply={handleCustomDateApply}
         onReset={handleCustomDateReset}
         onCancel={handleCustomDateCancel}
+      />
+
+      {/* ── CSV Import Modal ── */}
+      <CsvImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        apiMethod={merchantTxnAPI.create}
+        moduleName="Merchant Transaction"
+        onImportSuccess={() => {
+          fetchItems();
+          fetchStats();
+        }}
       />
     </div>
   );
