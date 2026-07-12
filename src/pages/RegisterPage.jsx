@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../api/authApi';
 import toast from 'react-hot-toast';
+import Logo from '../components/Logo';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -31,9 +32,7 @@ export default function RegisterPage() {
       <main className="relative z-20 w-full max-w-[440px]">
         <div className="glass-panel w-full rounded-3xl p-8 md:p-12 relative overflow-hidden leaf-pattern">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-32 h-32 rounded-full overflow-hidden flex justify-center items-start shadow-2xl shadow-primary/20 bg-white border-4 border-white mb-6">
-              <img src="/logo.png" alt="DOOARS GREEN Logo" className="h-[120%] max-w-none -mt-[10%]" />
-            </div>
+            <Logo className="mb-6" />
             <h1 className="font-headline text-3xl font-bold text-primary text-center">Register</h1>
             <p className="text-on-surface-variant text-sm mt-1 font-semibold tracking-widest uppercase">Create Manager Account</p>
           </div>

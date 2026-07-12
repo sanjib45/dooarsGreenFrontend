@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authAPI } from '../api/authApi';
+import Logo from '../components/Logo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -66,9 +67,7 @@ export default function LoginPage() {
         <div className="glass-panel animate-fade-up w-full max-w-[440px] rounded-3xl p-8 md:p-12 relative overflow-hidden leaf-pattern">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-32 h-32 rounded-full overflow-hidden flex justify-center items-start shadow-2xl shadow-primary/20 bg-white border-4 border-white mb-6">
-              <img src="/logo.png" alt="TEAnest Logo" className="h-[120%] max-w-none -mt-[10%]" />
-            </div>
+            <Logo className="mb-6" />
             <h1 className="font-headline text-3xl font-bold text-primary text-center">Welcome Back</h1>
             <p className="text-on-surface-variant text-sm mt-1 font-semibold tracking-widest uppercase">Sign in to your estate</p>
           </div>

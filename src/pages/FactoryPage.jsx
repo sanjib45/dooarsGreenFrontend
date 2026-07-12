@@ -605,16 +605,17 @@ export default function FactoryPage() {
       {/* Date Modal */}
       <CustomDateRangeModal
         isOpen={showCustomDateModal}
-        onClose={() => setShowCustomDateModal(false)}
+        onCancel={() => setShowCustomDateModal(false)}
         tempDates={tempDates}
-        setTempDates={setTempDates}
+        onChange={setTempDates}
         onApply={() => {
           setStartDate(tempDates.start);
           setEndDate(tempDates.end);
           setDatePreset('Custom');
           setShowCustomDateModal(false);
         }}
-        onClear={() => {
+        onReset={() => {
+          setTempDates({ start: '', end: '' });
           setStartDate('');
           setEndDate('');
           setDatePreset('');
