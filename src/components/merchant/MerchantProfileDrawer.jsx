@@ -1283,7 +1283,7 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
   const handlePaymentsLoaded = (total) => setTotalMasterPayments(total);
 
   // Net payable = outstanding balance across txns minus standalone advances minus general payments
-  const netPayableAfterAdv = Math.max(0, summary.totalBalance - totalStandaloneAdv - totalMasterPayments);
+  const netPayableAfterAdv = summary.totalBalance - totalStandaloneAdv - totalMasterPayments;
 
   return createPortal(
     <div
@@ -1343,6 +1343,7 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
                 value: `₹${fmt(netPayableAfterAdv)}`,
                 icon: 'account_balance_wallet',
                 highlight: netPayableAfterAdv > 0,
+                isNegative: netPayableAfterAdv < 0,
               },
             ].map((s) => (
               <div
@@ -1357,7 +1358,7 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
                 </div>
                 <span
                   className={`font-headline font-bold text-base ${
-                    s.highlight ? 'text-orange-600' : 'text-on-surface'
+                    s.isNegative ? 'text-red-600' : (s.highlight ? 'text-orange-600' : 'text-on-surface')
                   }`}
                 >
                   {s.value}
