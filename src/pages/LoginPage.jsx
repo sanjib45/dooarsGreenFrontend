@@ -12,6 +12,13 @@ export default function LoginPage() {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [registerMode, setRegisterMode] = useState('disabled');
+
+  useEffect(() => {
+    authAPI.getConfig()
+      .then(({ data }) => setRegisterMode(data?.data?.registerMode || 'disabled'))
+      .catch(() => setRegisterMode('disabled'));
+  }, []);
 
   // Animate leaves
   useEffect(() => {
@@ -122,12 +129,15 @@ export default function LoginPage() {
           </form>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-outline-variant/30 flex flex-col items-center gap-2 animate-fade-up stagger-4">
-            <p className="text-xs text-on-surface-variant">New to the estate network?</p>
-            <Link to="/register" className="text-sm font-bold text-primary flex items-center gap-1 hover:underline underline-offset-4">
-              Create Account <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-            </Link>
-          </div>
+          {registerMode !== 'disabled' && (
+            <div className="mt-8 pt-6 border-t border-outline-variant/30 flex flex-col items-center gap-2 animate-fade-up stagger-4">
+              <p className="text-xs text-on-surface-variant">New to the estate network?</p>
+              <Link to="/register" className="text-sm font-bold text-primary flex items-center gap-1 hover:underline underline-offset-4">
+                {registerMode === 'invite' ? 'Register with Invite' : 'Create Account'}
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </Link>
+            </div>
+          )}
 
           {/* Glow blobs */}
           <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />

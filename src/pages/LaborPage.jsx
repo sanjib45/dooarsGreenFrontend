@@ -13,6 +13,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { laborAPI } from '../api/laborApi';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { localYmd } from '../utils/date';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const ROLES = ['Plucker', 'Factory Worker', 'Supervisor', 'Maintenance', 'Other'];
 
@@ -21,7 +23,7 @@ const empty = {
   role:        '',
   headCount:   '1',
   laborCharge: '',
-  joinDate:    new Date().toISOString().slice(0, 10),
+  joinDate:    localYmd(),
   notes:       '',
 };
 
@@ -32,14 +34,14 @@ const fmt = (n) =>
 function PayBadge({ status }) {
   if (status === 'Paid') {
     return (
-      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-green-100 text-green-700">
+      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-green-100 text-green-700 whitespace-nowrap">
         <span className="material-symbols-outlined text-xs">check_circle</span>
         Paid
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-orange-100 text-orange-700">
+    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-orange-100 text-orange-700 whitespace-nowrap">
       <span className="material-symbols-outlined text-xs">pending</span>
       Due to Pay
     </span>
@@ -57,7 +59,8 @@ export default function LaborPage() {
   const [payingId,   setPayingId]   = useState(null); // which row is mid-toggle
 
   // Filters
-  const [search,        setSearch]        = useState('');
+  const [searchInput,   setSearchInput]   = useState('');
+  const search = useDebouncedValue(searchInput, 350);
   const [filterRole,    setFilterRole]    = useState('');
   const [filterPayment, setFilterPayment] = useState('');
 
@@ -88,7 +91,8 @@ export default function LaborPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { fetchItems(); fetchStats(); }, [fetchItems, fetchStats]);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
   // ── Form submit (create / edit) ─────────────────────────────────────────────
   const handleSubmit = async (e) => {
@@ -131,7 +135,7 @@ export default function LaborPage() {
       role:        item.role,
       headCount:   String(item.headCount || 1),
       laborCharge: String(item.laborCharge),
-      joinDate:    item.joinDate?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      joinDate:    item.joinDate?.slice(0, 10) || localYmd(),
       notes:       item.notes || '',
     });
     setEditing(item._id);
@@ -349,8 +353,8 @@ export default function LaborPage() {
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search name..."
               className="pl-9 pr-4 py-2 bg-surface-container rounded-full border-none text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -379,7 +383,7 @@ export default function LaborPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[960px] text-left text-sm">
             <thead>
               <tr className="bg-surface border-y border-outline-variant/20">
                 {['Sl. No.', 'Name', 'Role', 'Head Count', 'Rate/Head (₹)', 'Total Payable', 'Status', 'Actions'].map((h) => (
@@ -390,13 +394,13 @@ export default function LaborPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-on-surface-variant">
+                  <td colSpan={8} className="text-center py-12 text-on-surface-variant">
                     <span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span>
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-on-surface-variant">
+                  <td colSpan={8} className="text-center py-16 text-on-surface-variant">
                     <span className="material-symbols-outlined text-5xl text-outline mb-2 block">groups</span>
                     No records yet. Click "Add Worker" to get started.
                   </td>
@@ -407,59 +411,49 @@ export default function LaborPage() {
                     key={item._id}
                     className="odd:bg-white even:bg-surface-container-lowest/50 border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors text-on-surface"
                   >
-                    {/* Sl. No. */}
-                    <td className="px-4 py-4 text-on-surface-variant font-medium">{index + 1}</td>
+                    <td className="px-4 py-4 text-on-surface-variant font-medium whitespace-nowrap">{index + 1}</td>
 
-                    {/* Name */}
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <p className="font-bold text-primary">{item.name}</p>
                       {item.notes && (
                         <p className="text-xs text-on-surface-variant mt-0.5 truncate max-w-[140px]">{item.notes}</p>
                       )}
                     </td>
 
-                    {/* Role */}
-                    <td className="px-4 py-4">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary whitespace-nowrap">
                         {item.role}
                       </span>
                     </td>
 
-                    {/* Head Count */}
-                    <td className="px-4 py-4 font-semibold text-on-surface">
+                    <td className="px-4 py-4 font-semibold text-on-surface whitespace-nowrap">
                       {item.headCount || 1}
                     </td>
 
-                    {/* Labor Charge */}
-                    <td className="px-4 py-4 text-on-surface-variant">
+                    <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">
                       ₹{fmt(item.laborCharge)}
                     </td>
 
-                    {/* Total */}
-                    <td className="px-4 py-4 font-bold text-primary">
+                    <td className="px-4 py-4 font-bold text-primary whitespace-nowrap">
                       ₹{fmt(item.totalPayable || (item.headCount || 1) * item.laborCharge)}
                     </td>
 
-                    {/* Payment Status */}
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <PayBadge status={item.paymentStatus} />
-                      <div className="text-[10px] text-on-surface-variant mt-1 ml-1">
+                      <div className="text-[10px] text-on-surface-variant mt-1 ml-1 whitespace-nowrap">
                          {new Date(item.joinDate).toLocaleDateString('en-IN', {
                             day: '2-digit', month: 'short', year: 'numeric',
                          })}
                       </div>
                     </td>
 
-                    {/* Actions */}
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-
-                        {/* Pay / Undo Pay toggle */}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 flex-nowrap">
                         {item.paymentStatus === 'Due' ? (
                           <button
                             onClick={() => handleTogglePay(item)}
                             disabled={payingId === item._id}
-                            className="px-3 py-1.5 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:shadow-md transition-all active:scale-95 disabled:opacity-60"
+                            className="px-3 py-1.5 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap hover:shadow-md transition-all active:scale-95 disabled:opacity-60"
                           >
                             {payingId === item._id ? (
                               <span className="material-symbols-outlined animate-spin text-xs">progress_activity</span>
@@ -472,7 +466,7 @@ export default function LaborPage() {
                           <button
                             onClick={() => handleTogglePay(item)}
                             disabled={payingId === item._id}
-                            className="px-3 py-1.5 border border-orange-400 text-orange-600 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-orange-50 transition-all active:scale-95 disabled:opacity-60"
+                            className="px-3 py-1.5 border border-orange-400 text-orange-600 rounded-lg text-xs font-semibold flex items-center gap-1 whitespace-nowrap hover:bg-orange-50 transition-all active:scale-95 disabled:opacity-60"
                           >
                             {payingId === item._id ? (
                               <span className="material-symbols-outlined animate-spin text-xs">progress_activity</span>
@@ -483,22 +477,19 @@ export default function LaborPage() {
                           </button>
                         )}
 
-                        {/* Edit */}
                         <button
                           onClick={() => handleEdit(item)}
-                          className="px-3 py-1.5 border border-secondary text-secondary rounded-lg text-xs font-semibold hover:bg-secondary/5 transition-colors"
+                          className="px-3 py-1.5 border border-secondary text-secondary rounded-lg text-xs font-semibold whitespace-nowrap hover:bg-secondary/5 transition-colors"
                         >
                           Edit
                         </button>
 
-                        {/* Delete */}
                         <button
                           onClick={() => handleDelete(item._id)}
-                          className="px-3 py-1.5 border border-error text-error rounded-lg text-xs font-semibold hover:bg-error/5 transition-colors"
+                          className="px-3 py-1.5 border border-error text-error rounded-lg text-xs font-semibold whitespace-nowrap hover:bg-error/5 transition-colors"
                         >
                           Delete
                         </button>
-
                       </div>
                     </td>
                   </tr>

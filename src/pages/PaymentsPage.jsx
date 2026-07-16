@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { paymentsAPI } from '../api/paymentsApi';
 import toast from 'react-hot-toast';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const PAYMENT_TYPES = ['Salary', 'Advance', 'Bonus', 'Supplier', 'Other'];
 const STATUSES = ['Pending', 'Completed', 'Failed'];
@@ -19,7 +20,8 @@ export default function PaymentsPage() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebouncedValue(searchInput, 350);
   const [filterType, setFilterType] = useState('');
 
   const fetchItems = useCallback(async () => {
@@ -34,11 +36,12 @@ export default function PaymentsPage() {
     setLoading(false);
   }, [search, filterType]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try { const { data } = await paymentsAPI.getStats(); setStats(data.data); } catch {}
-  };
+  }, []);
 
-  useEffect(() => { fetchItems(); fetchStats(); }, [fetchItems]);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -159,7 +162,7 @@ export default function PaymentsPage() {
           <h3 className="font-headline text-xl font-semibold text-primary flex-1">Transaction History</h3>
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search payee..."
+            <input value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Search payee..."
               className="pl-9 pr-4 py-2 bg-surface-container rounded-full border-none text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
           <select value={filterType} onChange={e=>setFilterType(e.target.value)}
@@ -170,7 +173,7 @@ export default function PaymentsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
               <tr className="bg-surface border-y border-outline-variant/20">
                 {['Sl. No.', 'Payee', 'Type', 'Ref ID', 'Amount', 'Status', 'Date', 'Action'].map(h=>(
@@ -190,20 +193,20 @@ export default function PaymentsPage() {
                 </td></tr>
               ) : items.map((item, index) => (
                 <tr key={item._id} className="odd:bg-white even:bg-surface-container-lowest/50 border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors text-on-surface">
-                  <td className="px-4 py-4 text-on-surface-variant font-medium">{index + 1}</td>
-                  <td className="px-4 py-4 font-bold text-primary">{item.payeeName}</td>
-                  <td className="px-4 py-4 text-on-surface-variant">{item.paymentType}</td>
-                  <td className="px-4 py-4 text-on-surface-variant">{item.referenceId || '-'}</td>
-                  <td className="px-4 py-4 font-bold text-primary">₹{item.amount?.toLocaleString()}</td>
-                  <td className="px-4 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${statusStyle[item.status]||'bg-surface-variant text-on-surface-variant'}`}>{item.status}</span>
+                  <td className="px-4 py-4 text-on-surface-variant font-medium whitespace-nowrap">{index + 1}</td>
+                  <td className="px-4 py-4 font-bold text-primary whitespace-nowrap">{item.payeeName}</td>
+                  <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">{item.paymentType}</td>
+                  <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">{item.referenceId || '-'}</td>
+                  <td className="px-4 py-4 font-bold text-primary whitespace-nowrap">₹{item.amount?.toLocaleString()}</td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap ${statusStyle[item.status]||'bg-surface-variant text-on-surface-variant'}`}>{item.status}</span>
                   </td>
                   <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">
                     <span className="block">{new Date(item.paymentDate).toLocaleDateString('en-CA')}</span>
                     <span className="text-xs">{new Date(item.paymentDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                   </td>
-                  <td className="px-4 py-4">
-                    <div className="flex gap-2">
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex gap-2 flex-nowrap">
                       <button onClick={()=>handleEdit(item)} className="px-3 py-1.5 border border-secondary text-secondary rounded-lg text-xs font-semibold hover:bg-secondary/5 transition-colors whitespace-nowrap">Edit</button>
                       <button onClick={()=>handleDelete(item._id)} className="px-3 py-1.5 border border-error text-error rounded-lg text-xs font-semibold hover:bg-error/5 transition-colors whitespace-nowrap">Cancel</button>
                     </div>

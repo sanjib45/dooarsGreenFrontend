@@ -104,7 +104,7 @@ function MerchantTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+      <table className="w-full min-w-[800px] text-left text-sm">
         <thead className="sticky top-0 z-10">
           <tr className="bg-surface border-y border-outline-variant/20 shadow-sm">
             {['#', 'Transaction ID', 'Merchant', 'Tea Type', 'Net Qty (kg)', 'Final Payable (₹)', 'Balance (₹)', 'Date'].map(h => (
@@ -124,8 +124,8 @@ function MerchantTable({ rows }) {
                   </span>
                 </td>
                 <td className="px-4 py-3.5 font-semibold text-on-surface whitespace-nowrap">{item.merchantName}</td>
-                <td className="px-4 py-3.5">
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${TEA_COLORS[item.teaType] || 'bg-surface-container text-on-surface-variant'}`}>
+                <td className="px-4 py-3.5 whitespace-nowrap">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${TEA_COLORS[item.teaType] || 'bg-surface-container text-on-surface-variant'}`}>
                     {item.teaType}
                   </span>
                 </td>
@@ -159,7 +159,7 @@ function FactoryTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+      <table className="w-full min-w-[900px] text-left text-sm">
         <thead className="sticky top-0 z-10">
           <tr className="bg-surface border-y border-outline-variant/20 shadow-sm">
             {['#', 'Buyer', 'Date', 'Net Qty (kg)', 'Rate (₹/kg)', 'Total Amt (₹)', 'Advance (₹)', 'Paid (₹)', 'Due (₹)', 'Remarks'].map(h => (
