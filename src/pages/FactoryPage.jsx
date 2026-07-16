@@ -7,6 +7,8 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SearchableSelect from '../components/SearchableSelect';
 import CustomDateRangeModal from '../components/merchant/CustomDateRangeModal';
 import BuyerHistoryDrawer from '../components/factory/BuyerHistoryDrawer';
+import { localYmd, localDatetimeValue, toApiDate, toDatetimeLocal } from '../utils/date';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const PAYMENT_MODES = ['Cash', 'Online', 'Cheque'];
 
@@ -26,7 +28,7 @@ const getEmptyForm = () => ({
 });
 
 const getEmptyPayment = () => ({
-  date:   new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+  date:   localDatetimeValue(),
   amount: '',
   mode:   'Online',
 });
@@ -63,7 +65,10 @@ function PaymentModal({ sale, onClose, onSaved }) {
     if (!form.amount || parseFloat(form.amount) <= 0) { toast.error('Enter a valid amount'); return; }
     setSaving(true);
     try {
-      const { data } = await factoryAPI.addPayment(sale._id, form);
+      const { data } = await factoryAPI.addPayment(sale._id, {
+        ...form,
+        date: toApiDate(form.date),
+      });
       setPayments(data.data.payments);
       setForm(getEmptyPayment());
       toast.success('Payment recorded!');
@@ -522,7 +527,8 @@ export default function FactoryPage() {
   const [editing,     setEditing]     = useState(null);
   const [showForm,    setShowForm]    = useState(false);
   const [loading,     setLoading]     = useState(false);
-  const [search,      setSearch]      = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebouncedValue(searchInput, 350);
   const [deleteId,    setDeleteId]    = useState(null);
   const [paymentSale, setPaymentSale] = useState(null);   // for payment modal
   const [showCsvImport, setShowCsvImport] = useState(false); // for CSV import modal
@@ -534,7 +540,8 @@ export default function FactoryPage() {
   const [endDate, setEndDate]       = useState('');
   const [showCustomDateModal, setShowCustomDateModal] = useState(false);
   const [tempDates, setTempDates] = useState({ start: '', end: '' });
-  const [phoneSearch, setPhoneSearch] = useState('');  // phone filter
+  const [phoneSearchInput, setPhoneSearchInput] = useState('');
+  const phoneSearch = useDebouncedValue(phoneSearchInput, 350);
 
   // live preview virtuals while filling form
   const preview = calcVirtuals(form.totalQuantity, form.lessPercentage, form.rate, form.advance, []);
@@ -554,18 +561,24 @@ export default function FactoryPage() {
     setLoading(false);
   }, [search, phoneSearch, startDate, endDate]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try { const { data } = await factoryAPI.getStats(); setStats(data.data); } catch {}
-  };
+  }, []);
 
-  useEffect(() => { fetchItems(); fetchStats(); }, [fetchItems]);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
   // ── CRUD ──
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (editing) { await factoryAPI.update(editing, form); toast.success('Sale record updated!'); }
-      else          { await factoryAPI.create(form);          toast.success('Sale record created!'); }
+      const payload = {
+        ...form,
+        date: toApiDate(form.date),
+        dueDate: form.dueDate ? toApiDate(form.dueDate) : form.dueDate,
+      };
+      if (editing) { await factoryAPI.update(editing, payload); toast.success('Sale record updated!'); }
+      else          { await factoryAPI.create(payload);          toast.success('Sale record created!'); }
       setForm(getEmptyForm()); setEditing(null); setShowForm(false);
       fetchItems(); fetchStats();
     } catch (err) {
@@ -575,7 +588,7 @@ export default function FactoryPage() {
 
   const handleEdit = (item) => {
     setForm({
-      date:           item.date?.slice(0, 16) || '',
+      date:           toDatetimeLocal(item.date),
       buyerName:      item.buyerName,
       buyerId:        item.buyer || '',
       buyerObj:       item.buyer ? { _id: item.buyer, name: item.buyerName, phone: '' } : null,
@@ -585,7 +598,7 @@ export default function FactoryPage() {
       fineLeaf:       item.fineLeaf || '',
       rate:           item.rate,
       advance:        item.advance || 0,
-      dueDate:        item.dueDate?.slice(0, 16) || '',
+      dueDate:        toDatetimeLocal(item.dueDate),
       remarks:        item.remarks || '',
     });
     setEditing(item._id); setShowForm(true);
@@ -835,7 +848,7 @@ export default function FactoryPage() {
               {/* Search by buyer name */}
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buyer name…"
+                <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Buyer name…"
                   title="Search by buyer name"
                   className="pl-9 pr-4 py-2 bg-surface-container rounded-full border border-outline-variant/30 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
               </div>
@@ -843,7 +856,7 @@ export default function FactoryPage() {
               {/* Search by phone */}
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">phone</span>
-                <input value={phoneSearch} onChange={e => setPhoneSearch(e.target.value)} placeholder="Phone number…"
+                <input value={phoneSearchInput} onChange={e => setPhoneSearchInput(e.target.value)} placeholder="Phone number…"
                   title="Search by buyer phone number"
                   className="pl-9 pr-4 py-2 bg-surface-container rounded-full border border-outline-variant/30 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
               </div>
@@ -856,14 +869,14 @@ export default function FactoryPage() {
                       setDatePreset(preset);
                       const now = new Date();
                       if (preset === 'Today') {
-                        const t = now.toISOString().slice(0, 10);
+                        const t = localYmd(now);
                         setStartDate(t); setEndDate(t);
                       } else if (preset === 'Last 7 Days') {
                         const past = new Date(now); past.setDate(past.getDate() - 7);
-                        setStartDate(past.toISOString().slice(0, 10)); setEndDate(now.toISOString().slice(0, 10));
+                        setStartDate(localYmd(past)); setEndDate(localYmd(now));
                       } else if (preset === 'This Month') {
                         const first = new Date(now.getFullYear(), now.getMonth(), 1);
-                        setStartDate(first.toISOString().slice(0, 10)); setEndDate(now.toISOString().slice(0, 10));
+                        setStartDate(localYmd(first)); setEndDate(localYmd(now));
                       }
                     }}
                     className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
@@ -887,9 +900,9 @@ export default function FactoryPage() {
                   : 'Date'}
               </button>
 
-              {(search || phoneSearch || startDate) && (
+              {(searchInput || phoneSearchInput || startDate) && (
                 <button
-                  onClick={() => { setSearch(''); setPhoneSearch(''); setStartDate(''); setEndDate(''); setDatePreset(''); }}
+                  onClick={() => { setSearchInput(''); setPhoneSearchInput(''); setStartDate(''); setEndDate(''); setDatePreset(''); }}
                   className="flex items-center gap-1 text-error hover:bg-error/10 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border border-error/30"
                 >
                   <span className="material-symbols-outlined text-sm">close</span>
@@ -900,7 +913,7 @@ export default function FactoryPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[1300px] text-left text-sm">
               <thead className="sticky top-0 z-10">
               <tr className="bg-surface border-y border-outline-variant/20 shadow-sm">
                 {['Sl. No.', 'Date', 'Buyer Name', 'Material', 'Total Qty', 'Less %', 'Less Qty', 'Fine Leaf %', 'Net Qty', 'Rate (₹)', 'Total Amt (₹)', 'Advance (₹)', 'Paid (₹)', 'Due (₹)', 'Action'].map(h => (
@@ -957,8 +970,8 @@ export default function FactoryPage() {
                           {isDue ? `₹${fmt(v.due)}` : '✓ Clear'}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex gap-2">
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex gap-2 flex-nowrap">
                           {isDue ? (
                             <button onClick={() => setPaymentSale(item)} title="Add Payment"
                               className="px-3 py-1.5 border border-[#3b4b59] text-[#3b4b59] rounded-lg text-xs font-semibold hover:bg-[#3b4b59]/5 transition-colors whitespace-nowrap flex items-center gap-1">

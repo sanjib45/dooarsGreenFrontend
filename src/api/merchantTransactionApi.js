@@ -44,8 +44,8 @@ export const merchantTxnAPI = {
 
   // ── Invoice endpoints ─────────────────────────────────────────────────
   invoiceUrlByDate: (merchantName, startDate, endDate) => {
-    const token = localStorage.getItem('accessToken') || '';
-    return `${BASE_URL}/merchant-transactions/invoice/by-merchant-date?merchantName=${encodeURIComponent(merchantName)}&startDate=${startDate}&endDate=${endDate}&token=${token}`;
+    // Auth via axios/Bearer cookie flow only — never put JWT in the URL (leaks via logs/history)
+    return `${BASE_URL}/merchant-transactions/invoice/by-merchant-date?merchantName=${encodeURIComponent(merchantName)}&startDate=${startDate}&endDate=${endDate}`;
   },
   getInvoiceHtmlByDate: (merchantName, startDate, endDate) =>
     client.get('/merchant-transactions/invoice/by-merchant-date', {

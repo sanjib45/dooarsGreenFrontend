@@ -37,7 +37,7 @@ function BalanceBadge({ balance }) {
 export default function MerchantTransactionTable({ items, loading, onViewDetails, onEdit, onDelete }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+      <table className="w-full min-w-[1100px] text-left text-sm">
         <thead className="sticky top-0 z-10">
           <tr className="bg-surface border-y border-outline-variant/20 shadow-sm">
             {TABLE_HEADERS.map((h) => (
@@ -117,8 +117,8 @@ export default function MerchantTransactionTable({ items, loading, onViewDetails
                 </td>
 
                 {/* Actions */}
-                <td className="px-4 py-4">
-                  <div className="flex gap-2">
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <div className="flex gap-2 flex-nowrap">
                     <button
                       id={`details-${item._id}`}
                       onClick={() => onViewDetails(item)}

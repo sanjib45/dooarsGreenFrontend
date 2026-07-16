@@ -21,6 +21,8 @@ import MerchantTableFilters from '../components/merchant/MerchantTableFilters';
 import MerchantTransactionTable from '../components/merchant/MerchantTransactionTable';
 import CustomDateRangeModal from '../components/merchant/CustomDateRangeModal';
 import CsvImportModal from '../components/CsvImportModal';
+import { localYmd, localDatetimeValue, toApiDate, toDatetimeLocal } from '../utils/date';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 // ── Default empty form ────────────────────────────────────────────────────────
 const emptyForm = {
@@ -29,7 +31,7 @@ const emptyForm = {
   merchantObj:  null,
   merchantPhone: '',
   teaType: '',
-  transactionDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+  transactionDate: localDatetimeValue(),
   grossQty: '',
   lessPercent: '',
   fineLeaf: '',
@@ -56,7 +58,8 @@ export default function MerchantPage() {
   const [loading, setLoading] = useState(false);
 
   // ── Filter state ─────────────────────────────────────────────────────────────
-  const [search, setSearch]         = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebouncedValue(searchInput, 350);
   const [filterType, setFilterType] = useState('');
   const [datePreset, setDatePreset] = useState('');
   const [startDate, setStartDate]   = useState('');
@@ -110,6 +113,15 @@ export default function MerchantPage() {
 
   useEffect(() => {
     fetchItems();
+  }, [fetchItems]);
+
+  // Stats only on mount + after mutations (not on every search keystroke)
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const handleDrawerDataChange = useCallback(() => {
+    fetchItems();
     fetchStats();
   }, [fetchItems, fetchStats]);
 
@@ -126,15 +138,15 @@ export default function MerchantPage() {
       setStartDate('');
       setEndDate('');
     } else if (val === 'today') {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localYmd();
       setStartDate(today);
       setEndDate(today);
     } else if (val === '5day') {
       const today      = new Date();
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(today.getDate() - 5);
-      setStartDate(fiveDaysAgo.toISOString().slice(0, 10));
-      setEndDate(today.toISOString().slice(0, 10));
+      setStartDate(localYmd(fiveDaysAgo));
+      setEndDate(localYmd(today));
     } else if (val === 'custom') {
       setTempDates({ start: startDate, end: endDate });
       setShowCustomDateModal(true);
@@ -195,7 +207,7 @@ export default function MerchantPage() {
         merchantId:          form.merchantId || undefined,
         merchantPhone:       form.merchantPhone?.trim() || undefined,
         teaType:             form.teaType,
-        transactionDate:     form.transactionDate,
+        transactionDate:     toApiDate(form.transactionDate),
         grossQty:            Number(form.grossQty),
         lessPercent:         Number(form.lessPercent)         || 0,
         fineLeaf:            Number(form.fineLeaf)            || 0,
@@ -241,7 +253,7 @@ export default function MerchantPage() {
       merchantPhone:        item.merchantPhone || '',
       merchantObj:          { _id: item.merchant || undefined, name: item.merchantName, phone: item.merchantPhone || '' },
       teaType:              item.teaType,
-      transactionDate:      item.transactionDate?.slice(0, 16) || '',
+      transactionDate:      toDatetimeLocal(item.transactionDate),
       grossQty:             String(item.grossQty),
       lessPercent:          String(item.lessPercent),
       fineLeaf:             String(item.fineLeaf || ''),
@@ -338,14 +350,14 @@ export default function MerchantPage() {
       {/* ── Transaction Table ── */}
       <div className="glass-card rounded-3xl overflow-hidden shadow-xl shadow-primary/5">
         <MerchantTableFilters
-          search={search}
+          search={searchInput}
           filterType={filterType}
           datePreset={datePreset}
-          onSearchChange={setSearch}
+          onSearchChange={setSearchInput}
           onFilterTypeChange={setFilterType}
           onDatePresetChange={handleDatePresetChange}
           onClearAll={() => {
-            setSearch('');
+            setSearchInput('');
             setFilterType('');
             setDatePreset('');
             setStartDate('');
@@ -385,10 +397,7 @@ export default function MerchantPage() {
         <MerchantProfileDrawer
           merchantName={selectedMerchant}
           onClose={() => setSelectedMerchant(null)}
-          onDataChange={() => {
-            fetchItems();
-            fetchStats();
-          }}
+          onDataChange={handleDrawerDataChange}
         />
       )}
 

@@ -22,6 +22,7 @@ import { merchantTxnAPI } from '../../api/merchantTransactionApi';
 import { merchantMasterAPI } from '../../api/merchantMasterApi';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../ConfirmationModal';
+import { localYmd, localDatetimeValue, toApiDate } from '../../utils/date';
 
 
 
@@ -53,12 +54,15 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     amount: '',
-    advanceDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+    advanceDate: localDatetimeValue(),
     paymentMode: 'Cash',
     notes: '',
   });
 
   const merchantId = merchantProfile?._id;
+  // Keep callback in a ref so loadAdvances stays stable and does not re-fetch on every parent render
+  const onAdvancesLoadedRef = useRef(onAdvancesLoaded);
+  onAdvancesLoadedRef.current = onAdvancesLoaded;
 
   const loadAdvances = useCallback(async () => {
     if (!merchantId) return;
@@ -67,12 +71,12 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
       const { data: res } = await merchantMasterAPI.getAdvances(merchantId);
       setAdvances(res.data.advances);
       setTotalAdvance(res.data.totalAdvance);
-      if (onAdvancesLoaded) onAdvancesLoaded(res.data.totalAdvance);
+      onAdvancesLoadedRef.current?.(res.data.totalAdvance);
     } catch {
       toast.error('Failed to load advances');
     }
     setLoading(false);
-  }, [merchantId, onAdvancesLoaded]);
+  }, [merchantId]);
 
   useEffect(() => { loadAdvances(); }, [loadAdvances]);
 
@@ -80,21 +84,18 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
     e.preventDefault();
     let finalMerchantId = merchantId;
     if (!finalMerchantId) {
-      if (!merchantName) return toast.error('Unknown merchant name');
-      try {
-        const { data: res } = await merchantMasterAPI.findOrCreate({ name: merchantName, phone: 'NO-PHONE-' + Date.now().toString().slice(-6) });
-        finalMerchantId = res.data._id;
-      } catch (err) {
-        return toast.error('Could not auto-create merchant profile. Please create it manually.');
-      }
+      return toast.error('Link this merchant with a real phone first (use the Merchant form autocomplete). Placeholder phones are blocked.');
     }
     setSubmitting(true);
     try {
-      await merchantMasterAPI.createAdvance(finalMerchantId, form);
+      await merchantMasterAPI.createAdvance(finalMerchantId, {
+        ...form,
+        advanceDate: toApiDate(form.advanceDate),
+      });
       toast.success('Advance recorded!');
       setForm({
         amount: '',
-        advanceDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+        advanceDate: localDatetimeValue(),
         paymentMode: 'Cash',
         notes: '',
       });
@@ -261,12 +262,15 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     amount: '',
-    paymentDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+    paymentDate: localDatetimeValue(),
     paymentMode: 'Cash',
     notes: '',
   });
 
   const merchantId = merchantProfile?._id;
+  // Keep callback in a ref so loadPayments stays stable and does not re-fetch on every parent render
+  const onPaymentsLoadedRef = useRef(onPaymentsLoaded);
+  onPaymentsLoadedRef.current = onPaymentsLoaded;
 
   const loadPayments = useCallback(async () => {
     if (!merchantId) return;
@@ -275,12 +279,12 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
       const { data: res } = await merchantMasterAPI.getPayments(merchantId);
       setPayments(res.data.payments);
       setTotalPaid(res.data.totalPaid);
-      if (onPaymentsLoaded) onPaymentsLoaded(res.data.totalPaid);
+      onPaymentsLoadedRef.current?.(res.data.totalPaid);
     } catch {
       toast.error('Failed to load payments');
     }
     setLoading(false);
-  }, [merchantId, onPaymentsLoaded]);
+  }, [merchantId]);
 
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
@@ -288,23 +292,20 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
     e.preventDefault();
     let finalMerchantId = merchantId;
     if (!finalMerchantId) {
-      if (!merchantName) return toast.error('Unknown merchant name');
-      try {
-        const { data: res } = await merchantMasterAPI.findOrCreate({ name: merchantName, phone: 'NO-PHONE-' + Date.now().toString().slice(-6) });
-        finalMerchantId = res.data._id;
-      } catch (err) {
-        return toast.error('Could not auto-create merchant profile. Please create it manually.');
-      }
+      return toast.error('Link this merchant with a real phone first (use the Merchant form autocomplete). Placeholder phones are blocked.');
     }
     const amt = Number(form.amount);
     if (!amt || amt <= 0) return toast.error('Amount must be greater than 0');
     setSubmitting(true);
     try {
-      await merchantMasterAPI.createPayment(finalMerchantId, form);
+      await merchantMasterAPI.createPayment(finalMerchantId, {
+        ...form,
+        paymentDate: toApiDate(form.paymentDate),
+      });
       toast.success('Payment recorded!');
       setForm({
         amount: '',
-        paymentDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+        paymentDate: localDatetimeValue(),
         paymentMode: 'Cash',
         notes: '',
       });
@@ -464,7 +465,7 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
 // ── Invoice Download Section ──────────────────────────────────────────────────
 function InvoiceSection({ merchantName }) {
   const [isOpen, setIsOpen] = useState(false);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localYmd();
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate]     = useState(today);
   const [checking, setChecking]   = useState(false);
@@ -746,7 +747,7 @@ function TransactionCard({ txn, index, onDataChange }) {
   const [submitting, setSubmitting] = useState(false);
   const [payForm, setPayForm] = useState({
     amount: '',
-    paymentDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+    paymentDate: localDatetimeValue(),
     paymentMode: 'Cash',
     notes: '',
   });
@@ -776,11 +777,14 @@ function TransactionCard({ txn, index, onDataChange }) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await merchantTxnAPI.addPayment(txn._id, payForm);
+      await merchantTxnAPI.addPayment(txn._id, {
+        ...payForm,
+        paymentDate: toApiDate(payForm.paymentDate),
+      });
       toast.success('Payment recorded!');
       setPayForm({
         amount: '',
-        paymentDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+        paymentDate: localDatetimeValue(),
         paymentMode: 'Cash',
         notes: '',
       });
@@ -1271,16 +1275,18 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
     { totalNetQty: 0, totalGrossAmt: 0, totalAdvance: 0, totalFinalPay: 0, totalBalance: 0 }
   );
 
-  const handleDataChange = () => {
-    load();          // refresh transaction list (balance updated)
-    onDataChange();  // refresh parent table + stats cards
-  };
+  // Parent page refresh (table + stats) — keep stable
+  const onDataChangeRef = useRef(onDataChange);
+  onDataChangeRef.current = onDataChange;
 
-  // Called by AdvanceSection whenever advances are loaded/changed
-  const handleAdvancesLoaded = (total) => setTotalStandaloneAdv(total);
-  
-  // Called by PaymentSection whenever payments are loaded/changed
-  const handlePaymentsLoaded = (total) => setTotalMasterPayments(total);
+  const handleDataChange = useCallback(() => {
+    load();                       // refresh drawer txn balances
+    onDataChangeRef.current?.();  // refresh parent table/stats
+  }, [load]);
+
+  // Stable callbacks — prevents Advance/Payment sections from re-fetching
+  const handleAdvancesLoaded = useCallback((total) => setTotalStandaloneAdv(total), []);
+  const handlePaymentsLoaded = useCallback((total) => setTotalMasterPayments(total), []);
 
   // Net payable = outstanding balance across txns minus standalone advances minus general payments
   const netPayableAfterAdv = summary.totalBalance - totalStandaloneAdv - totalMasterPayments;
