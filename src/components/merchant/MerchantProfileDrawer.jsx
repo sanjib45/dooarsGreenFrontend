@@ -24,6 +24,51 @@ import toast from 'react-hot-toast';
 import ConfirmationModal from '../ConfirmationModal';
 import { localYmd, localDatetimeValue, toApiDate } from '../../utils/date';
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+
+function PaginationBar({ page, totalPages, onPrev, onNext, onPage }) {
+  if (totalPages <= 1) return null;
+  // Show at most 5 page buttons to keep it compact inside the drawer
+  const start = Math.max(1, page - 2);
+  const end   = Math.min(totalPages, start + 4);
+  const pages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  return (
+    <div className="flex items-center justify-center gap-1 py-2 flex-wrap">
+      <button
+        onClick={onPrev}
+        disabled={page === 1}
+        className="px-2 py-1 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
+      >
+        <span className="material-symbols-outlined text-sm">chevron_left</span>
+        Prev
+      </button>
+      {start > 1 && <span className="text-xs text-on-surface-variant px-1">...</span>}
+      {pages.map((p) => (
+        <button
+          key={p}
+          onClick={() => onPage(p)}
+          className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+            p === page
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-on-surface-variant hover:bg-surface-container'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      {end < totalPages && <span className="text-xs text-on-surface-variant px-1">...</span>}
+      <button
+        onClick={onNext}
+        disabled={page === totalPages}
+        className="px-2 py-1 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
+      >
+        Next
+        <span className="material-symbols-outlined text-sm">chevron_right</span>
+      </button>
+    </div>
+  );
+}
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,6 +97,7 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [advPage, setAdvPage] = useState(1);
   const [form, setForm] = useState({
     amount: '',
     advanceDate: localDatetimeValue(),
@@ -71,6 +117,7 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
       const { data: res } = await merchantMasterAPI.getAdvances(merchantId);
       setAdvances(res.data.advances);
       setTotalAdvance(res.data.totalAdvance);
+      setAdvPage(1);
       onAdvancesLoadedRef.current?.(res.data.totalAdvance);
     } catch {
       toast.error('Failed to load advances');
@@ -151,7 +198,7 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
       </div>
 
       {/* Collapsible body */}
-      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
         {/* Add Advance Form */}
         {showForm && (
           <form onSubmit={handleSubmit} className="px-4 py-3 bg-amber-50/30 border-b border-amber-100 space-y-3">
@@ -216,36 +263,58 @@ function AdvanceSection({ merchantProfile, merchantName, onDataChange, onAdvance
             </div>
           ) : advances.length === 0 ? (
             <p className="text-xs text-on-surface-variant italic py-2">No advance payments recorded yet.</p>
-          ) : (
-            <div className="space-y-1.5 pt-2">
-              {advances.map(adv => (
-                <div key={adv._id} className="flex items-center justify-between bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-amber-200 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-amber-700 text-[14px]">payments</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-on-surface">₹{fmt(adv.amount)}</p>
-                      <p className="text-[10px] text-on-surface-variant">
-                        {fmtDate(adv.advanceDate)} · {adv.paymentMode}
-                        {adv.notes && ` · ${adv.notes}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-on-surface-variant/60">{adv.advanceId}</span>
-                    <button
-                      onClick={() => handleDelete(adv._id)}
-                      className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
-                      title="Delete advance"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
+          ) : (() => {
+            const advTotalPages = Math.max(1, Math.ceil(advances.length / PAGE_SIZE));
+            const pageAdvances  = advances.slice((advPage - 1) * PAGE_SIZE, advPage * PAGE_SIZE);
+            return (
+              <>
+                {/* Scrollable list — max 320px, custom amber scrollbar */}
+                <div className="max-h-[320px] overflow-y-auto scroll-thin-amber pt-2 pr-1">
+                  <div className="space-y-1.5">
+                    {pageAdvances.map(adv => (
+                      <div key={adv._id} className="flex items-center justify-between bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-amber-200 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-amber-700 text-[14px]">payments</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-on-surface">₹{fmt(adv.amount)}</p>
+                            <p className="text-[10px] text-on-surface-variant">
+                              {fmtDate(adv.advanceDate)} · {adv.paymentMode}
+                              {adv.notes && ` · ${adv.notes}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-on-surface-variant/60">{adv.advanceId}</span>
+                          <button
+                            onClick={() => handleDelete(adv._id)}
+                            className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
+                            title="Delete advance"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+                {/* Pagination stays outside scroll zone — always visible */}
+                <PaginationBar
+                  page={advPage}
+                  totalPages={advTotalPages}
+                  onPrev={() => setAdvPage(p => Math.max(1, p - 1))}
+                  onNext={() => setAdvPage(p => Math.min(advTotalPages, p + 1))}
+                  onPage={(p) => setAdvPage(p)}
+                />
+                {advTotalPages > 1 && (
+                  <p className="text-center text-[10px] text-on-surface-variant pb-1">
+                    {pageAdvances.length} of {advances.length} advances · Page {advPage}/{advTotalPages}
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>{/* end collapsible body */}
     </div>
@@ -260,6 +329,7 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [payPage, setPayPage] = useState(1);
   const [form, setForm] = useState({
     amount: '',
     paymentDate: localDatetimeValue(),
@@ -279,6 +349,7 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
       const { data: res } = await merchantMasterAPI.getPayments(merchantId);
       setPayments(res.data.payments);
       setTotalPaid(res.data.totalPaid);
+      setPayPage(1);
       onPaymentsLoadedRef.current?.(res.data.totalPaid);
     } catch {
       toast.error('Failed to load payments');
@@ -361,7 +432,7 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
       </div>
 
       {/* Collapsible body */}
-      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
         {/* Add Payment Form */}
         {showForm && (
           <form onSubmit={handleSubmit} className="px-4 py-3 bg-green-50/30 border-b border-green-100 space-y-3">
@@ -426,36 +497,58 @@ function PaymentSection({ merchantProfile, merchantName, onDataChange, onPayment
             </div>
           ) : payments.length === 0 ? (
             <p className="text-xs text-on-surface-variant italic py-2">No payments recorded yet.</p>
-          ) : (
-            <div className="space-y-1.5 pt-2">
-              {payments.map(pay => (
-                <div key={pay._id} className="flex items-center justify-between bg-green-50 rounded-xl px-3 py-2 border border-green-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-green-200 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-green-700 text-[14px]">payments</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-on-surface">₹{fmt(pay.amount)}</p>
-                      <p className="text-[10px] text-on-surface-variant">
-                        {fmtDate(pay.paymentDate)} · {pay.paymentMode}
-                        {pay.notes && ` · ${pay.notes}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-on-surface-variant/60">{pay.paymentId}</span>
-                    <button
-                      onClick={() => handleDelete(pay._id)}
-                      className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
-                      title="Delete payment"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
+          ) : (() => {
+            const payTotalPages = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
+            const pagePayments  = payments.slice((payPage - 1) * PAGE_SIZE, payPage * PAGE_SIZE);
+            return (
+              <>
+                {/* Scrollable list — max 320px, custom green scrollbar */}
+                <div className="max-h-[320px] overflow-y-auto scroll-thin-green pt-2 pr-1">
+                  <div className="space-y-1.5">
+                    {pagePayments.map(pay => (
+                      <div key={pay._id} className="flex items-center justify-between bg-green-50 rounded-xl px-3 py-2 border border-green-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-green-200 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-green-700 text-[14px]">payments</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-on-surface">₹{fmt(pay.amount)}</p>
+                            <p className="text-[10px] text-on-surface-variant">
+                              {fmtDate(pay.paymentDate)} · {pay.paymentMode}
+                              {pay.notes && ` · ${pay.notes}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-on-surface-variant/60">{pay.paymentId}</span>
+                          <button
+                            onClick={() => handleDelete(pay._id)}
+                            className="p-1 rounded-lg hover:bg-red-100 text-error transition-colors"
+                            title="Delete payment"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+                {/* Pagination stays outside scroll zone — always visible */}
+                <PaginationBar
+                  page={payPage}
+                  totalPages={payTotalPages}
+                  onPrev={() => setPayPage(p => Math.max(1, p - 1))}
+                  onNext={() => setPayPage(p => Math.min(payTotalPages, p + 1))}
+                  onPage={(p) => setPayPage(p)}
+                />
+                {payTotalPages > 1 && (
+                  <p className="text-center text-[10px] text-on-surface-variant pb-1">
+                    {pagePayments.length} of {payments.length} payments · Page {payPage}/{payTotalPages}
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>{/* end collapsible body */}
     </div>
@@ -1217,6 +1310,7 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
   const [loading, setLoading]           = useState(true);
   const [totalStandaloneAdv, setTotalStandaloneAdv] = useState(0);
   const [totalMasterPayments, setTotalMasterPayments] = useState(0);
+  const [txnPage, setTxnPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1238,6 +1332,7 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
         limit: 500,
       });
       setTransactions(res.data);
+      setTxnPage(1);
 
       if (profile) {
         setMerchantProfile(profile);
@@ -1410,21 +1505,39 @@ export default function MerchantProfileDrawer({ merchantName, onClose, onDataCha
               <span className="material-symbols-outlined text-5xl text-outline mb-3">receipt_long</span>
               <p className="text-sm">No transactions found for this merchant.</p>
             </div>
-          ) : (
-            <>
-              <p className="text-xs text-on-surface-variant px-1">
-                Tap a transaction to see details &amp; manage payments
-              </p>
-              {transactions.map((txn, index) => (
-                <TransactionCard
-                  key={txn._id}
-                  txn={txn}
-                  index={index}
-                  onDataChange={handleDataChange}
+          ) : (() => {
+            const txnTotalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+            const pageTxns      = transactions.slice((txnPage - 1) * PAGE_SIZE, txnPage * PAGE_SIZE);
+            return (
+              <>
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <p className="text-xs text-on-surface-variant">
+                    Tap a transaction to see details &amp; manage payments
+                  </p>
+                  {txnTotalPages > 1 && (
+                    <span className="text-[10px] text-on-surface-variant font-medium">
+                      Page {txnPage}/{txnTotalPages}
+                    </span>
+                  )}
+                </div>
+                {pageTxns.map((txn, index) => (
+                  <TransactionCard
+                    key={txn._id}
+                    txn={txn}
+                    index={(txnPage - 1) * PAGE_SIZE + index}
+                    onDataChange={handleDataChange}
+                  />
+                ))}
+                <PaginationBar
+                  page={txnPage}
+                  totalPages={txnTotalPages}
+                  onPrev={() => setTxnPage(p => Math.max(1, p - 1))}
+                  onNext={() => setTxnPage(p => Math.min(txnTotalPages, p + 1))}
+                  onPage={(p) => setTxnPage(p)}
                 />
-              ))}
-            </>
-          )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Bottom padding */}
