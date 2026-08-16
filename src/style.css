@@ -95,3 +95,41 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+/* ── Themed thin scrollbars for merchant drawer list sections ────────────────
+   .scroll-thin-green  →  Payments to Merchant  (green accent)
+   .scroll-thin-amber  →  Advance Payments      (amber accent)
+   Both are invisible until hovered so the UI stays clean.
+   Firefox uses scrollbar-width + scrollbar-color as a fallback.
+   ──────────────────────────────────────────────────────────────────────────── */
+.scroll-thin-green {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(21, 128, 61, 0.25) transparent;
+}
+.scroll-thin-green::-webkit-scrollbar          { width: 4px; }
+.scroll-thin-green::-webkit-scrollbar-track    { background: transparent; }
+.scroll-thin-green::-webkit-scrollbar-thumb    {
+  background-color: rgba(21, 128, 61, 0.18);
+  border-radius: 99px;
+  transition: background-color 0.2s;
+}
+.scroll-thin-green:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(21, 128, 61, 0.40);
+}
+
+.scroll-thin-amber {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 83, 9, 0.25) transparent;
+}
+.scroll-thin-amber::-webkit-scrollbar          { width: 4px; }
+.scroll-thin-amber::-webkit-scrollbar-track    { background: transparent; }
+.scroll-thin-amber::-webkit-scrollbar-thumb    {
+  background-color: rgba(180, 83, 9, 0.18);
+  border-radius: 99px;
+  transition: background-color 0.2s;
+}
+.scroll-thin-amber:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(180, 83, 9, 0.40);
+}

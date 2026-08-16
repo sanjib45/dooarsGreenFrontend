@@ -13,6 +13,52 @@ import { createPortal } from 'react-dom';
 import { factoryAPI } from '../../api/factoryApi';
 import toast from 'react-hot-toast';
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+
+function PaginationBar({ page, totalPages, onPrev, onNext, onPage }) {
+  if (totalPages <= 1) return null;
+  const start = Math.max(1, page - 2);
+  const end   = Math.min(totalPages, start + 4);
+  const pages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  return (
+    <div className="flex items-center justify-center gap-1 py-2 flex-wrap">
+      <button
+        onClick={onPrev}
+        disabled={page === 1}
+        className="px-2 py-1 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
+      >
+        <span className="material-symbols-outlined text-sm">chevron_left</span>
+        Prev
+      </button>
+      {start > 1 && <span className="text-xs text-on-surface-variant px-1">...</span>}
+      {pages.map((p) => (
+        <button
+          key={p}
+          onClick={() => onPage(p)}
+          className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+            p === page
+              ? 'bg-secondary text-white shadow-sm'
+              : 'text-on-surface-variant hover:bg-surface-container'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      {end < totalPages && <span className="text-xs text-on-surface-variant px-1">...</span>}
+      <button
+        onClick={onNext}
+        disabled={page === totalPages}
+        className="px-2 py-1 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
+      >
+        Next
+        <span className="material-symbols-outlined text-sm">chevron_right</span>
+      </button>
+    </div>
+  );
+}
+
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) =>
   Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -38,8 +84,20 @@ function calcVirtuals(totalQuantity, lessPercentage, rate, advance, payments) {
 // ── Single Sale Record Card (expandable) ─────────────────────────────────────
 function SaleCard({ item, index, onPaymentClick, onDataChange }) {
   const [open, setOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const v = calcVirtuals(item.totalQuantity, item.lessPercentage, item.rate, item.advance, item.payments);
   const isFullyPaid = v.due <= 0;
+
+  const handleDownloadInvoice = async () => {
+    setDownloading(true);
+    try {
+      const url = await factoryAPI.getInvoiceBlob(item._id);
+      window.open(url, '_blank');
+    } catch {
+      toast.error('Failed to generate invoice');
+    }
+    setDownloading(false);
+  };
 
   return (
     <div className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
@@ -199,18 +257,15 @@ function SaleCard({ item, index, onPaymentClick, onDataChange }) {
               </button>
             )}
             <button
-              onClick={async () => {
-                try {
-                  const url = await factoryAPI.getInvoiceBlob(item._id);
-                  window.open(url, '_blank');
-                } catch {
-                  toast.error('Failed to generate invoice');
-                }
-              }}
-              className={`${isFullyPaid ? 'flex-1' : ''} flex items-center justify-center gap-2 py-2.5 px-4 border-2 border-primary text-primary rounded-xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.98]`}
+              onClick={handleDownloadInvoice}
+              disabled={downloading}
+              className={`${isFullyPaid ? 'flex-1' : ''} flex items-center justify-center gap-2 py-2.5 px-4 border-2 border-primary text-primary rounded-xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              <span className="material-symbols-outlined text-base">receipt_long</span>
-              Download Invoice
+              {downloading
+                ? <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                : <span className="material-symbols-outlined text-base">receipt_long</span>
+              }
+              {downloading ? 'Generating…' : 'Download Invoice'}
             </button>
           </div>
         </div>
@@ -223,6 +278,8 @@ function SaleCard({ item, index, onPaymentClick, onDataChange }) {
 export default function BuyerHistoryDrawer({ buyerName, onClose, onPaymentClick, onDataChange }) {
   const [records,  setRecords]  = useState([]);
   const [loading,  setLoading]  = useState(true);
+  const [page, setPage] = useState(1);
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,6 +289,7 @@ export default function BuyerHistoryDrawer({ buyerName, onClose, onPaymentClick,
         r.buyerName.toLowerCase() === buyerName.toLowerCase()
       ).sort((a, b) => new Date(b.date) - new Date(a.date));
       setRecords(filtered);
+      setPage(1);
     } catch {
       toast.error('Failed to load buyer history');
     }
@@ -290,18 +348,24 @@ export default function BuyerHistoryDrawer({ buyerName, onClose, onPaymentClick,
           <div className="flex items-center gap-3">
             <button
               onClick={async () => {
+                setDownloadingStatement(true);
                 try {
                   const url = await factoryAPI.getInvoiceBlobByBuyer(buyerName);
                   window.open(url, '_blank');
                 } catch {
                   toast.error('Failed to generate statement');
                 }
+                setDownloadingStatement(false);
               }}
-              className="px-4 py-2 border-2 border-primary text-primary rounded-xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.98] flex items-center gap-2"
+              disabled={downloadingStatement}
+              className="px-4 py-2 border-2 border-primary text-primary rounded-xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.98] flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               title="Download Statement"
             >
-              <span className="material-symbols-outlined text-sm">receipt_long</span>
-              Download Statement
+              {downloadingStatement
+                ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                : <span className="material-symbols-outlined text-sm">receipt_long</span>
+              }
+              {downloadingStatement ? 'Generating…' : 'Download Statement'}
             </button>
             <button
               onClick={onClose}
@@ -345,22 +409,40 @@ export default function BuyerHistoryDrawer({ buyerName, onClose, onPaymentClick,
               <span className="material-symbols-outlined text-5xl text-outline mb-3">storefront</span>
               <p className="text-sm">No sale records found for this buyer.</p>
             </div>
-          ) : (
-            <>
-              <p className="text-xs text-on-surface-variant px-1">
-                Tap a record to see details &amp; payment history
-              </p>
-              {records.map((item, index) => (
-                <SaleCard
-                  key={item._id}
-                  item={item}
-                  index={index}
-                  onPaymentClick={handlePaymentClick}
-                  onDataChange={handleDataChange}
+          ) : (() => {
+            const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+            const pageRecords = records.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+            return (
+              <>
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <p className="text-xs text-on-surface-variant">
+                    Tap a record to see details &amp; payment history
+                  </p>
+                  {totalPages > 1 && (
+                    <span className="text-[10px] text-on-surface-variant font-medium">
+                      Page {page}/{totalPages}
+                    </span>
+                  )}
+                </div>
+                {pageRecords.map((item, index) => (
+                  <SaleCard
+                    key={item._id}
+                    item={item}
+                    index={(page - 1) * PAGE_SIZE + index}
+                    onPaymentClick={handlePaymentClick}
+                    onDataChange={handleDataChange}
+                  />
+                ))}
+                <PaginationBar
+                  page={page}
+                  totalPages={totalPages}
+                  onPrev={() => setPage(p => Math.max(1, p - 1))}
+                  onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+                  onPage={(p) => setPage(p)}
                 />
-              ))}
-            </>
-          )}
+              </>
+            );
+          })()}
         </div>
 
         <div className="h-4 shrink-0" />

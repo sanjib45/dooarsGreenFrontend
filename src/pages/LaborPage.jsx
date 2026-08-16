@@ -18,6 +18,47 @@ import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const ROLES = ['Plucker', 'Factory Worker', 'Supervisor', 'Maintenance', 'Other'];
 
+const PAGE_SIZE = 20;
+
+// ── Pagination Bar ────────────────────────────────────────────────────────────
+function PaginationBar({ page, totalPages, onPrev, onNext, onPage }) {
+  if (totalPages <= 1) return null;
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  return (
+    <div className="flex items-center justify-center gap-1 py-3 flex-wrap">
+      <button
+        onClick={onPrev}
+        disabled={page === 1}
+        className="px-3 py-1.5 rounded-lg border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+      >
+        <span className="material-symbols-outlined text-sm">chevron_left</span>
+        Prev
+      </button>
+      {pages.map((p) => (
+        <button
+          key={p}
+          onClick={() => onPage(p)}
+          className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${
+            p === page
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-on-surface-variant hover:bg-surface-container'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button
+        onClick={onNext}
+        disabled={page === totalPages}
+        className="px-3 py-1.5 rounded-lg border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+      >
+        Next
+        <span className="material-symbols-outlined text-sm">chevron_right</span>
+      </button>
+    </div>
+  );
+}
+
 const empty = {
   name:        '',
   role:        '',
@@ -67,6 +108,7 @@ export default function LaborPage() {
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteId,          setDeleteId]          = useState(null);
+  const [page, setPage] = useState(1);
 
   // ── Data fetching ───────────────────────────────────────────────────────────
   const fetchItems = useCallback(async () => {
@@ -78,6 +120,7 @@ export default function LaborPage() {
       if (filterPayment) params.paymentStatus = filterPayment;
       const { data } = await laborAPI.getAll(params);
       setItems(data.data);
+      setPage(1);
     } catch {
       toast.error('Failed to load labor data');
     }
@@ -179,6 +222,10 @@ export default function LaborPage() {
       setDeleteId(null);
     }
   };
+
+  // ── Pagination derived state ─────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pageItems  = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -406,12 +453,12 @@ export default function LaborPage() {
                   </td>
                 </tr>
               ) : (
-                items.map((item, index) => (
+                pageItems.map((item, index) => (
                   <tr
                     key={item._id}
                     className="odd:bg-white even:bg-surface-container-lowest/50 border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors text-on-surface"
                   >
-                    <td className="px-4 py-4 text-on-surface-variant font-medium whitespace-nowrap">{index + 1}</td>
+                    <td className="px-4 py-4 text-on-surface-variant font-medium whitespace-nowrap">{(page - 1) * PAGE_SIZE + index + 1}</td>
 
                     <td className="px-4 py-4 whitespace-nowrap">
                       <p className="font-bold text-primary">{item.name}</p>
@@ -499,15 +546,25 @@ export default function LaborPage() {
           </table>
         </div>
 
-        <div className="p-4 bg-surface-container-lowest/30 flex items-center justify-between">
-          <p className="text-xs text-on-surface-variant">
-            Showing {items.length} record{items.length !== 1 ? 's' : ''}
-          </p>
-          {stats?.summary && (
+        <div className="p-4 bg-surface-container-lowest/30">
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            onPrev={() => setPage(p => Math.max(1, p - 1))}
+            onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+            onPage={(p) => setPage(p)}
+          />
+          <div className="flex items-center justify-between">
             <p className="text-xs text-on-surface-variant">
-              Total outstanding: <span className="font-bold text-orange-600">₹{fmt(stats.summary.totalDue)}</span>
+              Showing {pageItems.length} of {items.length} record{items.length !== 1 ? 's' : ''}
+              {totalPages > 1 ? ` — Page ${page} of ${totalPages}` : ''}
             </p>
-          )}
+            {stats?.summary && (
+              <p className="text-xs text-on-surface-variant">
+                Total outstanding: <span className="font-bold text-orange-600">₹{fmt(stats.summary.totalDue)}</span>
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

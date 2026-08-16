@@ -6,12 +6,52 @@ import useDebouncedValue from '../hooks/useDebouncedValue';
 const PAYMENT_TYPES = ['Salary', 'Advance', 'Bonus', 'Supplier', 'Other'];
 const STATUSES = ['Pending', 'Completed', 'Failed'];
 const empty = { payeeName: '', paymentType: '', amount: '', paymentDate: '', status: 'Pending', referenceId: '', notes: '' };
+const PAGE_SIZE = 20;
 
 const statusStyle = {
   'Pending': 'bg-yellow-100 text-yellow-800',
   'Completed': 'bg-secondary-container/30 text-on-secondary-container',
   'Failed': 'bg-red-100 text-red-800',
 };
+
+// ── Pagination Bar ────────────────────────────────────────────────────────────
+function PaginationBar({ page, totalPages, onPrev, onNext, onPage }) {
+  if (totalPages <= 1) return null;
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  return (
+    <div className="flex items-center justify-center gap-1 py-3 flex-wrap">
+      <button
+        onClick={onPrev}
+        disabled={page === 1}
+        className="px-3 py-1.5 rounded-lg border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+      >
+        <span className="material-symbols-outlined text-sm">chevron_left</span>
+        Prev
+      </button>
+      {pages.map((p) => (
+        <button
+          key={p}
+          onClick={() => onPage(p)}
+          className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${
+            p === page
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-on-surface-variant hover:bg-surface-container'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button
+        onClick={onNext}
+        disabled={page === totalPages}
+        className="px-3 py-1.5 rounded-lg border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+      >
+        Next
+        <span className="material-symbols-outlined text-sm">chevron_right</span>
+      </button>
+    </div>
+  );
+}
 
 export default function PaymentsPage() {
   const [items, setItems] = useState([]);
@@ -23,6 +63,7 @@ export default function PaymentsPage() {
   const [searchInput, setSearchInput] = useState('');
   const search = useDebouncedValue(searchInput, 350);
   const [filterType, setFilterType] = useState('');
+  const [page, setPage] = useState(1);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -32,6 +73,7 @@ export default function PaymentsPage() {
       if (filterType) params.paymentType = filterType;
       const { data } = await paymentsAPI.getAll(params);
       setItems(data.data);
+      setPage(1); // reset to first page on new data
     } catch { toast.error('Failed to load payments data'); }
     setLoading(false);
   }, [search, filterType]);
@@ -74,12 +116,16 @@ export default function PaymentsPage() {
     catch { toast.error('Delete failed'); }
   };
 
+  // ── Pagination derived state ─────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pageItems  = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div>
       {/* Page Header */}
       <div className="flex justify-between items-end mb-8">
         <div>
-          <h1 className="font-headline text-3xl font-semibold text-primary">Payments & Payroll</h1>
+          <h1 className="font-headline text-3xl font-semibold text-primary">Payments &amp; Payroll</h1>
           <p className="text-on-surface-variant mt-1">Manage salaries, supplier payments, and advances.</p>
         </div>
         <button onClick={() => { setShowForm(!showForm); if(showForm){setForm(empty);setEditing(null);} }}
@@ -186,14 +232,14 @@ export default function PaymentsPage() {
                 <tr><td colSpan={8} className="text-center py-12 text-on-surface-variant">
                   <span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span>
                 </td></tr>
-              ) : items.length === 0 ? (
+              ) : pageItems.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-16 text-on-surface-variant">
                   <span className="material-symbols-outlined text-5xl text-outline mb-2 block">payments</span>
                   No payments yet. Click "New Payment" to create one.
                 </td></tr>
-              ) : items.map((item, index) => (
+              ) : pageItems.map((item, index) => (
                 <tr key={item._id} className="odd:bg-white even:bg-surface-container-lowest/50 border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors text-on-surface">
-                  <td className="px-4 py-4 text-on-surface-variant font-medium whitespace-nowrap">{index + 1}</td>
+                  <td className="px-4 py-4 text-on-surface-variant font-medium whitespace-nowrap">{(page - 1) * PAGE_SIZE + index + 1}</td>
                   <td className="px-4 py-4 font-bold text-primary whitespace-nowrap">{item.payeeName}</td>
                   <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">{item.paymentType}</td>
                   <td className="px-4 py-4 text-on-surface-variant whitespace-nowrap">{item.referenceId || '-'}</td>
@@ -216,8 +262,18 @@ export default function PaymentsPage() {
             </tbody>
           </table>
         </div>
-        <div className="p-4 bg-surface-container-lowest/30 flex items-center justify-between">
-          <p className="text-xs text-on-surface-variant">Showing {items.length} records</p>
+        <div className="px-4 pt-1 pb-2 bg-surface-container-lowest/30">
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            onPrev={() => setPage(p => Math.max(1, p - 1))}
+            onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+            onPage={(p) => setPage(p)}
+          />
+          <p className="text-xs text-on-surface-variant text-center pb-2">
+            Showing {pageItems.length} of {items.length} record{items.length !== 1 ? 's' : ''}
+            {totalPages > 1 ? ` — Page ${page} of ${totalPages}` : ''}
+          </p>
         </div>
       </div>
     </div>
